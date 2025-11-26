@@ -1,5 +1,3 @@
-// TODO: Understand and properly take into account padding.
-
 class UI {
 
     static readonly ROOT = mod.GetUIRoot();
