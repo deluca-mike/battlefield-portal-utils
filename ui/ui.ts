@@ -1,3 +1,5 @@
+// version: 1.0.0
+
 class UI {
 
     static readonly ROOT = mod.GetUIRoot();

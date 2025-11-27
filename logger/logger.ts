@@ -1,3 +1,5 @@
+// version: 1.1.0
+
 // NOTE: Requires the UI module.
 // NOTE: Requires the contents of the `logger.strings.json` file to be loaded.
 
@@ -27,6 +29,7 @@ class Logger {
         }, player);
 
         this.staticRows = options?.staticRows ?? false;
+        this.truncate = this.staticRows || (options?.truncate ?? false);
         // this.scaleFactor = options?.textScale === 'small' ? 0.8 : options?.textScale === 'large' ? 1.2 : 1;
         this.scaleFactor = 1; // TODO: Implement fixes/corrections for part widths when scale factor is not 1.
         this.rowHeight = 20 * this.scaleFactor;
@@ -37,6 +40,8 @@ class Logger {
     private window: UI.Container;
 
     private staticRows: boolean;
+
+    private truncate: boolean;
 
     private rows: { [rowIndex: number]: UI.Container } = {};
 
@@ -90,29 +95,44 @@ class Logger {
     private logInRow(text: string, rowIndex: number): void {
         if (rowIndex >= this.maxRows) return; // Actually, this should be an error.
 
-        this.fillRow(this.createRow(rowIndex), text);
+        this.fillRow(this.createRow(rowIndex), Logger.getParts(text));
     }
 
     private logNext(text: string): void {
-        this.fillRow(this.prepareNextRow(), text);
+        this.logNextParts(Logger.getParts(text));
     }
 
-    private fillRow(row: UI.Container, text: string): void {
-        const parts = (text.match(/.{1,3}/g) ?? []) as string[];
+    private logNextParts(parts: string[]): void {
+        const remaining = this.fillRow(this.prepareNextRow(), parts);
 
+        if (!remaining) return;
+
+        this.logNextParts(remaining);
+    }
+
+    private fillRow(row: UI.Container, parts: string[]): string[] | null {
         const limit = this.width - (Logger.PADDING * 2) - 45; // 45 is the width of a part with the largest 3 characters, plus 3 extra.
 
-        parts.reduce((accumulator, part, index) => {
-            if (accumulator < 0) return accumulator; // Text was too long and has been truncated.
+        let x = 0;
+        let lastPartIndex = -1;
 
-            if (accumulator >= limit) {
-                this.createPartText(row, '...', accumulator, 3);
-                return -1; // Indicates that the text is too long and has been truncated.
+        for (let i = 0; i < parts.length; ++i) {
+            if (x >= limit) { // The text is too long and needs to be truncated or wrapped.
+                if (this.truncate) {
+                    this.createPartText(row, '...', x, 3);
+                    return null;
+                }
+
+                return parts.slice(lastPartIndex + 1);
             }
 
-            // Extra width for the last part (which likely does not have 3 characters).
-            return accumulator + this.createPartText(row, part, accumulator, index === parts.length - 1 ? 3 : 0);
-        }, 0);
+            // Extra width of 3 for the last part (which likely does not have 3 characters).
+            x += this.createPartText(row, parts[i], x, i === parts.length - 1 ? 3 : 0);
+
+            lastPartIndex = i;
+        }
+
+        return null;
     }
 
     private prepareNextRow(): UI.Container {
@@ -158,7 +178,9 @@ class Logger {
     }
 
     private createPartText(row: UI.Container, part: string, x: number, extraWidth: number = 0): number {
-        const partWidth = this.getPartWidth(part) + extraWidth;
+        if (part === ' ') return 7; // Space won't be a character, but instead just an instruction for the next part to be offset by 14.
+
+        const partWidth = this.getTextWidth(part) + extraWidth;
 
         UI.createText({
             x: x,
@@ -176,17 +198,21 @@ class Logger {
         return partWidth;
     }
 
-    private getPartWidth(part: string): number {
+    private getTextWidth(part: string): number {
         return this.scaleFactor * part.split('').reduce((accumulator, character) => accumulator + Logger.getCharacterWidth(character), 0);
+    }
+
+    private static getParts(text: string): string[] {
+        return (text.match(/( |[^ ]{1,3})/g) ?? []) as string[];
     }
 
     private static getCharacterWidth(char: string): number {
         if (['W', 'm', '@'].includes(char)) return 14;
         if (['M', 'w'].includes(char)) return 12.5;
-        if (['#', '?'].includes(char)) return 12;
-        if (['-', '+', '='].includes(char)) return 11.5;
-        if (['U', '&', '~'].includes(char)) return 11;
-        if (['C', 'D', 'G', 'H', 'N', 'O', 'Q', 'S', ' ', '$', '%', '<', '>'].includes(char)) return 10.5; // ' ' is a double space in the json.
+        if (['#', '?', '+'].includes(char)) return 12;
+        if (['-', '='].includes(char)) return 11.5;
+        if (['U', '$', '%', '&', '~'].includes(char)) return 11;
+        if (['C', 'D', 'G', 'H', 'N', 'O', 'Q', 'S', '<', '>'].includes(char)) return 10.5;
         if (['0', '3', '6', '8', '9', 'A', 'B', 'V', 'X', '_'].includes(char)) return 10;
         if (['2', '4', '5', 'E', 'F', 'K', 'P', 'R', 'Y', 'Z', 'a', 'h', 's'].includes(char)) return 9.5;
         if (['7', 'b', 'c', 'd', 'e', 'g', 'n', 'o', 'p', 'q', 'u', '^', '*', '`'].includes(char)) return 9;
@@ -223,6 +249,7 @@ namespace Logger {
 
     export interface Options {
         staticRows?: boolean,
+        truncate?: boolean,
         parent?: mod.UIWidget,
         anchor?: mod.UIAnchor,
         x?: number,

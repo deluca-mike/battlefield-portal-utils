@@ -21,7 +21,7 @@ This TypeScript `Logger` class removes the biggest Battlefield Portal debugging 
 ## Getting Started
 
 1. Copy the entire `Logger` class and namespace from [`logger/logger.ts`](logger.ts) and paste it into your mod after the required `UI` helper.
-2. Copy the `logger` key (and all its children) from `logger/logger.strings.json` into your Battlefield Portal experience's `strins.json` file, ensuring the `logger` key is top-level.
+2. Copy the `logger` key (and all its children) from `logger/logger.strings.json` into your Battlefield Portal experience's `strings.json` file, ensuring the `logger` key is top-level.
 3. Instantiate a logger for a player (or team) as needed.
 4. Call `log(text)` anywhere in your scripts. Static loggers accept an optional `rowIndex`; dynamic loggers ignore it and auto-scroll.
 
@@ -31,7 +31,7 @@ This TypeScript `Logger` class removes the biggest Battlefield Portal debugging 
 
 - **Static dashboards** – Pin persistent diagnostics (positions, squad metadata, timers) to precise rows.
 - **Dynamic consoles** – Stream verbose traces (button clicks, state transitions, error stacks) without worrying about pre-provisioned strings.
-- **Hybrid** – Keep both modes active: e.g., static logger on the left for gauges, dynamic logger on the right for realtime traces.
+- **Multiple Instances** – Keep both modes active: e.g., static logger on the left for gauges, dynamic logger on the right for realtime traces.
 
 ### Example
 
@@ -85,7 +85,7 @@ All window measurements are in UI pixels. Defaults are taken from [`logger/logge
 
 Internals worth noting when debugging:
 - Rows are recycled via `prepareNextRow()` so long-running sessions stay performant.
-- Text is chunked into three-character segments and mapped through `Logger.buildMessage`, which is why the character lookup in the strings file matters.
+- Text is chunked into three-character-or-less segments and mapped through `Logger.buildMessage`, which is why the character lookup in the strings file matters.
 
 ### `Logger.Options`
 
@@ -93,7 +93,8 @@ Optional bag passed to the constructor. See [`mod/index.d.ts`](../mod/index.d.ts
 
 | Property | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `staticRows` | `boolean` | `false` | Set `true` to enable deterministic row targeting. |
+| `staticRows` | `boolean` | `false` | Set `true` for **"static-mode"** for row targeting, `false` for **"dynamic-mode"** for console-style logging. |
+| `truncate` | `boolean` | `false` | Only valid in **"dynamic-mode"**. Set to `true` to truncate multi-line logs and terminate with ellipses. |
 | `parent` | `mod.UIWidget` | `UI.ROOT` | Override if you want the logger embedded in another container. |
 | `anchor` | `mod.UIAnchor` | `mod.UIAnchor.TopLeft` | Determines how `x`/`y` offsets are interpreted. |
 | `x`, `y` | `number` | `10`, `10` | Window origin (in pixels) relative to the anchor. |
@@ -109,7 +110,7 @@ Optional bag passed to the constructor. See [`mod/index.d.ts`](../mod/index.d.ts
 
 ## Strings File (`logger.strings.json`)
 
-The logger renders arbitrary strings by mapping each character to a localized token. Ensure the file is loaded so `mod.stringkeys.logger` contains:
+The logger renders arbitrary strings by mapping each character to a localized token. At runtime, `mod.stringkeys.logger` contains:
 
 - `format` templates for one-, two-, and three-character chunks plus a `badFormat` fallback.
 - `chars` dictionary that maps every supported character (letters, digits, punctuation) to the same character.
@@ -121,7 +122,23 @@ If you need additional glyphs, extend the JSON first, then update `Logger.getCha
 
 ## Character Spacing and Display Caveats
 
-Battlefield Portal’s custom UI font is **not monospaced**, so each glyph renders with a different width. To make dynamic logging possible, the logger relies on `Logger.getCharacterWidth`—a hand-tuned table that approximates the relative width of every supported character in 0.5 increments. That approximation keeps text readable, but you may notice slightly wider gaps where three-character chunks meet. More polish is planned to smooth these seams; for now, expect occasional spacing hiccups, especially with long uppercase strings or mixed punctuation. In particular, forwardslashes and backslashes may be drawn above or below the row, uncenetered, and left square brackets (`[`) _always_ come prepended with a backslash (`\`) for an unknown reason.
+Battlefield Portal’s custom UI font is **not monospaced**, so each glyph renders with a different width. To make dynamic logging possible, the logger relies on a custom `Logger.getCharacterWidth`, which is a hand-tuned table that approximates the relative width of every supported character in 0.5 increments. That approximation keeps text readable, but you may notice slightly wider gaps where character chunks meet. More polish is planned to smooth these seams; for now, expect occasional spacing hiccups.
+
+In particular:
+- forwardslashes and backslashes may be drawn above or below the row, uncentered
+- left square brackets (`[`) **always** come prepended with a backslash (`\`) for an unknown reason
+- chunks starting with `r` or `t` are drawn slightly further to the right than others
+
+---
+
+## Upcomming Features
+
+In no particular order, planned upcomming work and improvements include:
+- breaking out the dynamic string "text boxes" into its own module so they can be used in generic UIs within Portal
+- window/text scales (i.e. "small", "medium", "large")
+- an input mode so you could call arbitrary `mod` functions from the "console", with autocompletion
+- scrollable in dynamic mode so you can go back in the history to see logs that have seen been purged from view
+- performance and memory improvements
 
 ---
 
