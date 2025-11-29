@@ -1,4 +1,4 @@
-// version: 1.1.0
+// version: 1.1.1
 
 // NOTE: Requires the UI module.
 // NOTE: Requires the contents of the `logger.strings.json` file to be loaded.
@@ -111,13 +111,13 @@ class Logger {
     }
 
     private fillRow(row: UI.Container, parts: string[]): string[] | null {
-        const limit = this.width - (Logger.PADDING * 2) - 45; // 45 is the width of a part with the largest 3 characters, plus 3 extra.
-
         let x = 0;
         let lastPartIndex = -1;
 
         for (let i = 0; i < parts.length; ++i) {
-            if (x >= limit) { // The text is too long and needs to be truncated or wrapped.
+            const isLastPart = i === parts.length - 1;
+
+            if (this.rowLimitReached(x, parts[i], isLastPart)) {
                 if (this.truncate) {
                     this.createPartText(row, '...', x, 3);
                     return null;
@@ -127,12 +127,27 @@ class Logger {
             }
 
             // Extra width of 3 for the last part (which likely does not have 3 characters).
-            x += this.createPartText(row, parts[i], x, i === parts.length - 1 ? 3 : 0);
+            x += this.createPartText(row, parts[i], x, isLastPart ? 3 : 0);
 
             lastPartIndex = i;
         }
 
         return null;
+    }
+
+    private rowLimitReached(x: number, part: string, isLastPart: boolean): boolean {
+        const limit = this.width - (Logger.PADDING * 2) - 3; // the row width minus the padding and 3 extra.
+
+        // The early limit is the row width minus the padding, the width of the largest possible part and the width of the ellipsi.
+        if (x + 57 <= limit) return false;
+
+        // The last part is too long.
+        if (isLastPart && (x + this.getTextWidth(part) >= limit)) return true;
+
+        // The part plus the width of the ellipsis is too long.
+        if (x + this.getTextWidth(part) + 12 >= limit) return true;
+
+        return false;
     }
 
     private prepareNextRow(): UI.Container {
@@ -178,7 +193,7 @@ class Logger {
     }
 
     private createPartText(row: UI.Container, part: string, x: number, extraWidth: number = 0): number {
-        if (part === ' ') return 7; // Space won't be a character, but instead just an instruction for the next part to be offset by 14.
+        if (part === ' ') return 7; // Space won't be a character, but instead just an instruction for the next part to be offset by 7.
 
         const partWidth = this.getTextWidth(part) + extraWidth;
 
@@ -208,6 +223,7 @@ class Logger {
 
     private static getCharacterWidth(char: string): number {
         if (['W', 'm', '@'].includes(char)) return 14;
+        if (['['].includes(char)) return 13; // TODO: '[' is always prepended by a '\', so needs to be larger than ']'.
         if (['M', 'w'].includes(char)) return 12.5;
         if (['#', '?', '+'].includes(char)) return 12;
         if (['-', '='].includes(char)) return 11.5;
@@ -217,9 +233,9 @@ class Logger {
         if (['2', '4', '5', 'E', 'F', 'K', 'P', 'R', 'Y', 'Z', 'a', 'h', 's'].includes(char)) return 9.5;
         if (['7', 'b', 'c', 'd', 'e', 'g', 'n', 'o', 'p', 'q', 'u', '^', '*', '`'].includes(char)) return 9;
         if (['L', 'T', 'k', 'v', 'x', 'y', 'z'].includes(char)) return 8.5; // TODO: Maybe 'x' could be 8.
-        if (['J', '[', ']', '"'].includes(char)) return 8; // TODO: Issue with '['
+        if (['J', ']', '"', '\\', '/'].includes(char)) return 8;
         if (['1'].includes(char)) return 7.5;
-        if (['\\', '/'].includes(char)) return 7;
+        if ([' '].includes(char)) return 7;
         if (['r'].includes(char)) return 6.5; // TODO: Maybe 'r' should be 6.
         if (['f', '{', '}'].includes(char)) return 6; // TODO: Maybe 'f' should be 5.5.
         if (['t'].includes(char)) return 5.5;
@@ -250,7 +266,7 @@ namespace Logger {
     export interface Options {
         staticRows?: boolean,
         truncate?: boolean,
-        parent?: mod.UIWidget,
+        parent?: mod.UIWidget | UI.Node,
         anchor?: mod.UIAnchor,
         x?: number,
         y?: number,

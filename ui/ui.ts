@@ -1,10 +1,10 @@
-// version: 1.0.0
+// version: 1.1.0
 
 class UI {
 
-    static readonly ROOT = mod.GetUIRoot();
+    private static readonly CLICK_HANDLERS = new Map<string, (player: mod.Player) => Promise<void>>();
 
-    static readonly COLORS = {
+    public static readonly COLORS = {
         BLACK: mod.CreateVector(0, 0, 0),
         GREY_25: mod.CreateVector(0.25, 0.25, 0.25),
         GREY_50: mod.CreateVector(0.5, 0.5, 0.5),
@@ -19,11 +19,25 @@ class UI {
         MAGENTA: mod.CreateVector(1, 0, 1),
     };
 
-    static readonly CLICK_HANDLERS = new Map<string, (player: mod.Player) => Promise<void>>();
+    private static rootNode: UI.Node;
 
-    static createContainer(params: UI.ContainerParams, receiver?: mod.Player | mod.Team): UI.Container {
-        const name = params.name ?? UI.randomUiName();
-        const parent = params.parent ?? UI.ROOT;
+    private static counter: number = 0;
+
+    public static root(): UI.Node {
+        if (UI.rootNode) return UI.rootNode;
+
+        UI.rootNode = {
+            type: UI.Type.Root,
+            name: 'ui_root',
+            uiWidget: () => mod.GetUIRoot(),
+        };
+
+        return UI.rootNode;
+    }
+
+    public static createContainer(params: UI.ContainerParams, receiver?: mod.Player | mod.Team): UI.Container {
+        const parent = UI.parseNode(params.parent);
+        const name = params.name ?? UI.makeName(parent, receiver);
     
         const args: [
             string,
@@ -42,7 +56,7 @@ class UI {
             mod.CreateVector(params.x ?? 0, params.y ?? 0, 0),
             mod.CreateVector(params.width ?? 0, params.height ?? 0, 0),
             params.anchor ?? mod.UIAnchor.Center,
-            parent,
+            parent.uiWidget(),
             params.visible ?? true,
             params.padding ?? 0,
             params.bgColor ?? UI.COLORS.BLACK,
@@ -57,23 +71,14 @@ class UI {
             mod.AddUIContainer(...args, receiver);
         }
 
-        const children = (params.childrenParams ?? []).map(childParams => {
-            childParams.parent = mod.FindUIWidgetWithName(name) as mod.UIWidget;
-
-            if (childParams.type === 'container') return UI.createContainer(childParams);
-            
-            if (childParams.type === 'text') return UI.createText(childParams);
-        
-            return UI.createButton(childParams as UI.ButtonParams);
-        });
-
         const uiWidget = () => mod.FindUIWidgetWithName(name) as mod.UIWidget;
-    
-        return {
+
+        const container = {
+            type: UI.Type.Container,
             name: name,
             uiWidget: uiWidget,
             parent: parent,
-            children: children,
+            children: [] as (UI.Container | UI.Text | UI.Button)[],
             isVisible: () => mod.GetUIWidgetVisible(uiWidget()),
             show: () => mod.SetUIWidgetVisible(uiWidget(), true),
             hide: () => mod.SetUIWidgetVisible(uiWidget(), false),
@@ -81,11 +86,27 @@ class UI {
             getPosition: () => UI.getPosition(uiWidget()),
             setPosition: (x: number, y: number) => mod.SetUIWidgetPosition(uiWidget(), mod.CreateVector(x, y, 0)),
         };
+
+        for (const childParams of params.childrenParams ?? []) {
+            childParams.parent = container;
+
+            const child =
+                childParams.type === 'container' ? UI.createContainer(childParams) :
+                childParams.type === 'text' ? UI.createText(childParams) :
+                childParams.type === 'button' ? UI.createButton(childParams as UI.ButtonParams) :
+                undefined;
+
+            if (!child) continue;
+
+            container.children.push(child);
+        }
+    
+        return container;
     }
 
-    static createText(params: UI.TextParams, receiver?: mod.Player | mod.Team): UI.Text {
-        const name = params.name ?? UI.randomUiName();
-        const parent = params.parent ?? UI.ROOT;
+    public static createText(params: UI.TextParams, receiver?: mod.Player | mod.Team): UI.Text {
+        const parent = UI.parseNode(params.parent);
+        const name = params.name ?? UI.makeName(parent, receiver);
     
         const args: [
             string,
@@ -109,7 +130,7 @@ class UI {
             mod.CreateVector(params.x ?? 0, params.y ?? 0, 0),
             mod.CreateVector(params.width ?? 0, params.height ?? 0, 0),
             params.anchor ?? mod.UIAnchor.Center,
-            parent,
+            parent.uiWidget(),
             params.visible ?? true,
             params.padding ?? 0,
             params.bgColor ?? UI.COLORS.WHITE,
@@ -132,6 +153,7 @@ class UI {
         const uiWidget = () => mod.FindUIWidgetWithName(name) as mod.UIWidget;
 
         return {
+            type: UI.Type.Text,
             name: name,
             uiWidget: uiWidget,
             parent: parent,
@@ -145,17 +167,16 @@ class UI {
         };
     }
 
-    static createButton(params: UI.ButtonParams, receiver?: mod.Player | mod.Team): UI.Button {
-        const name = params.name ?? UI.randomUiName();
+    public static createButton(params: UI.ButtonParams, receiver?: mod.Player | mod.Team): UI.Button {
+        const parent = UI.parseNode(params.parent);
     
         const containerParams: UI.ContainerParams = {
-            name: name,
             x: params.x,
             y: params.y,
             width: params.width,
             height: params.height,
             anchor: params.anchor,
-            parent: params.parent,
+            parent: parent,
             visible: params.visible,
             padding: 0,
             bgColor: UI.COLORS.BLACK,
@@ -165,7 +186,7 @@ class UI {
         };
     
         const container = UI.createContainer(containerParams, receiver);
-        const buttonName = `${name}_button`;
+        const buttonName = params.name ?? `${container.name}_button`;
 
         const containerUiWidget = container.uiWidget();
     
@@ -201,7 +222,8 @@ class UI {
         const buttonUiWidget = () => mod.FindUIWidgetWithName(buttonName) as mod.UIWidget;
 
         const button: UI.Button = {
-            name: name,
+            type: UI.Type.Button,
+            name: container.name,
             uiWidget: () => containerUiWidget,
             parent: container.parent,
             buttonName: buttonName,
@@ -229,14 +251,14 @@ class UI {
             depth: params.depth,
         });
     
-        button.labelName = label.name;
+        button.labelName = `${container.name}_label`;
         button.labelUiWidget = label.uiWidget;
         button.setLabelMessage = label.setMessage;
     
         return button;
     }
 
-    static async handleButtonClick(player: mod.Player, widget: mod.UIWidget, event: mod.UIButtonEvent): Promise<void> {
+    public static async handleButtonClick(player: mod.Player, widget: mod.UIWidget, event: mod.UIButtonEvent): Promise<void> {
         // NOTE: mod.UIButtonEvent is currently broken or undefined, so we're not using it for now.
         // if (event != mod.UIButtonEvent.ButtonUp) return;
 
@@ -247,12 +269,20 @@ class UI {
         await clickHandler(player);
     }
 
-    private static randomUiName(): string {
-        return `id_${UI.randomInt(0, 1_000_000)}_${UI.randomInt(0, 1_000_000)}`;
+    public static parseNode(node?: UI.Node | mod.UIWidget): UI.Node {
+        if (!node) return UI.root();
+        
+        if (node.hasOwnProperty('uiWidget')) return node as UI.Node;
+
+        return {
+            type: UI.Type.Unknown,
+            name: 'ui_unknown',
+            uiWidget: () => node as mod.UIWidget,
+        };
     }
-    
-    private static randomInt(min: number, max: number): number {
-        return mod.RoundToInteger(mod.RandomReal(min, max));
+
+    private static makeName(parent: UI.Node, receiver?: mod.Player | mod.Team): string {
+        return `${parent.name}${receiver ? `_${mod.GetObjId(receiver)}` : ''}_${UI.counter++}`;
     }
 
     private static getPosition(widget: mod.UIWidget): { x: number, y: number } {
@@ -263,15 +293,58 @@ class UI {
 
 namespace UI {
 
+    export enum Type {
+        Root = "root",
+        Container = "container",
+        Text = "text",
+        Button = "button",
+        Unknown = "unknown",
+    }
+
+    export type Node = {
+        type: Type,
+        name: string,
+        uiWidget: () => mod.UIWidget,
+    }
+
+    export type Element = Node & {
+        parent: Node,
+        isVisible: () => boolean,
+        show: () => void,
+        hide: () => void,
+        delete: () => void,
+        getPosition: () => { x: number, y: number },
+        setPosition: (x: number, y: number) => void,
+    }
+
+    export type Container = Element & {
+        children: (Container | Text | Button)[],
+    }
+    
+    export type Text = Element & {
+        setMessage: (message: mod.Message) => void,
+    }
+    
+    export type Button = Element & {
+        buttonName: string,
+        buttonUiWidget: () => mod.UIWidget,
+        isEnabled: () => boolean,
+        enable: () => void,
+        disable: () => void,
+        labelName?: string,
+        labelUiWidget?: () => mod.UIWidget,
+        setLabelMessage?: (message: mod.Message) => void,
+    }
+
     interface Params {
-        type?: string,
+        type?: Type,
         name?: string,
         x?: number,
         y?: number,
         width?: number,
         height?: number,
         anchor?: mod.UIAnchor,
-        parent?: mod.UIWidget,
+        parent?: mod.UIWidget | Node,
         visible?: boolean,
         padding?: number,
         bgColor?: mod.Vector,
@@ -281,23 +354,7 @@ namespace UI {
     }
 
     export interface ContainerParams extends Params {
-        childrenParams?: (UI.ContainerParams | UI.TextParams | UI.ButtonParams)[],
-    }
-
-    export type UIElement = {
-        name: string,
-        uiWidget: () => mod.UIWidget,
-        parent: mod.UIWidget,
-        isVisible: () => boolean,
-        show: () => void,
-        hide: () => void,
-        delete: () => void,
-        getPosition: () => { x: number, y: number },
-        setPosition: (x: number, y: number) => void,
-    }
-
-    export type Container = UI.UIElement & {
-        children: (UI.Container | UI.Text | UI.Button)[],
+        childrenParams?: (ContainerParams | TextParams | ButtonParams)[],
     }
 
     export interface TextParams extends Params {
@@ -306,10 +363,6 @@ namespace UI {
         textColor?: mod.Vector,
         textAlpha?: number,
         textAnchor?: mod.UIAnchor,
-    }
-    
-    export type Text = UI.UIElement & {
-        setMessage: (message: mod.Message) => void,
     }
 
     export interface LabelParams {
@@ -333,17 +386,6 @@ namespace UI {
         focusedAlpha?: number,
         onClick?: (player: mod.Player) => Promise<void>,
         label?: LabelParams,
-    }
-    
-    export type Button = UI.UIElement & {
-        buttonName: string,
-        buttonUiWidget: () => mod.UIWidget,
-        isEnabled: () => boolean,
-        enable: () => void,
-        disable: () => void,
-        labelName?: string,
-        labelUiWidget?: () => mod.UIWidget,
-        setLabelMessage?: (message: mod.Message) => void,
     }
 
 }

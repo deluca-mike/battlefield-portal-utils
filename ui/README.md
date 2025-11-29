@@ -33,8 +33,7 @@ export async function OnPlayerDeployed(eventPlayer: mod.Player): Promise<void> {
     if (!testMenu) {
         testMenu = UI.createContainer(
             {
-                type: 'container',
-                name: 'testMenu',
+                type: UI.Type.Container,
                 x: 0,
                 y: 0,
                 width: 200,
@@ -42,8 +41,7 @@ export async function OnPlayerDeployed(eventPlayer: mod.Player): Promise<void> {
                 anchor: mod.UIAnchor.Center,
                 childrenParams: [
                     {
-                        type: 'button',
-                        name: 'button_option1',
+                        type: UI.Type.Button,
                         x: 0,
                         y: 0,
                         width: 200,
@@ -61,8 +59,7 @@ export async function OnPlayerDeployed(eventPlayer: mod.Player): Promise<void> {
                         },
                     },
                     {
-                        type: 'button',
-                        name: 'button_option2',
+                        type: UI.Type.Button,
                         x: 0,
                         y: 50,
                         width: 200,
@@ -80,8 +77,7 @@ export async function OnPlayerDeployed(eventPlayer: mod.Player): Promise<void> {
                         },
                     },
                     {
-                        type: 'button',
-                        name: 'button_close',
+                        type: UI.Type.Button,
                         x: 0,
                         y: 0,
                         width: 50,
@@ -126,8 +122,9 @@ export async function OnPlayerUIButtonEvent(player: mod.Player, widget: mod.UIWi
 
 ## Core Concepts
 
-- **`UI` namespace** – A static class that wraps `mod.*` UI functions and keeps track of active buttons/handlers.
-- **`UI.UIElement` base contract** – All created elements expose `name`, `uiWidget()`, `isVisible()`, `show()`, `hide()`, `delete()`, `getPosition()`, and `setPosition(x, y)`.
+- **`UI` class** – A static class that wraps `mod.*` UI functions and keeps track of active buttons/handlers.
+- **`UI.Node` base type** – All UI nodes (root, containers, text, buttons) have a `type`, `name`, and `uiWidget()` function.
+- **`UI.Element` base contract** – All created elements extend `Node` and expose `parent` (a `Node`), `isVisible()`, `show()`, `hide()`, `delete()`, `getPosition()`, and `setPosition(x, y)`.
 - **`UI.CLICK_HANDLERS`** – Internal `Map<string, (player) => Promise<void>>` that binds `onClick` callbacks to button widget names. `UI.handleButtonClick` looks up handlers when Battlefield Portal fires `OnButtonPressed`.
 - **Default colors** – `UI.COLORS` wraps common `mod.CreateVector(r, g, b)` presets so you rarely need to build vectors yourself.
 - **Receiver routing** – `createContainer`/`createText`/`createButton` optionally accept `mod.Player | mod.Team` to display UI to a specific audience. When omitted, the widgets are global.
@@ -136,32 +133,29 @@ export async function OnPlayerUIButtonEvent(player: mod.Player, widget: mod.UIWi
 
 ## API Reference
 
-### `UI.ROOT: mod.UIWidget`
-Root widget from `mod.GetUIRoot()`. All elements default to this parent unless you supply `parent` in params.
-
 ### `UI.COLORS`
 Prebuilt `mod.Vector` colors: `BLACK`, `GREY_25`, `GREY_50`, `GREY_75`, `WHITE`, `RED`, `GREEN`, `BLUE`, `YELLOW`, `PURPLE`, `CYAN`, `MAGENTA`.
 
-### `UI.CLICK_HANDLERS: Map<string, (player: mod.Player) => Promise<void>>`
-Internal registry keyed by button widget names. Updated automatically by `createButton` when `onClick` is provided.
+### `UI.root(): UI.Node`
+Returns the root node wrapping `mod.GetUIRoot()`. All elements default to this parent unless you supply `parent` in params. The root node is lazily initialized and cached.
 
 ### `UI.createContainer(params, receiver?)`
 Creates a container (`mod.AddUIContainer`) and any nested children defined via `childrenParams`.
 
 | Param | Type / Default | Notes |
 | --- | --- | --- |
-| `name` | `string = UI.randomUiName()` | Auto-generated IDs look like `id_<int>_<int>`. |
+| `name` | `string` | Auto-generated names follow `<PAREN_NAME>_<RECEIVER_ID_IF_PROVIDED>_<INCREMENTING_NUMBER>`. |
 | `x`, `y` | `number = 0` | Position relative to `anchor`. |
 | `width`, `height` | `number = 0` | Size in screen units. |
 | `anchor` | `mod.UIAnchor = mod.UIAnchor.Center` | See `mod/index.d.ts` for enum values. |
-| `parent` | `mod.UIWidget = UI.ROOT` | Parent widget. |
+| `parent` | `mod.UIWidget \| UI.Node \| undefined` | Parent widget or node. Defaults to `UI.root()` when omitted. |
 | `visible` | `boolean = true` | Initial visibility. |
 | `padding` | `number = 0` | Container padding. |
 | `bgColor` | `mod.Vector = UI.COLORS.BLACK` | Background color. |
 | `bgAlpha` | `number = 1` | Background opacity. |
 | `bgFill` | `mod.UIBgFill = mod.UIBgFill.Solid` | Fill mode. |
 | `depth` | `mod.UIDepth = mod.UIDepth.AboveGameUI` | Z-order. |
-| `childrenParams` | `Array<ContainerParams | TextParams | ButtonParams> = []` | Nested elements automatically receive this container as `parent`. |
+| `childrenParams` | `Array<ContainerParams \| TextParams \| ButtonParams> = []` | Nested elements automatically receive this container as `parent`. Note that a `type` of `UI.Type.Container`, `UI.Type.Container`, or `UI.Type.Container` is required for each child params. |
 | `receiver` | `mod.Player \| mod.Team \| undefined` | Target audience; defaults to global. |
 
 Returns `UI.Container` (see Types).
@@ -171,8 +165,8 @@ Creates a text widget via `mod.AddUIText`.
 
 | Param | Type / Default | Notes |
 | --- | --- | --- |
-| `name` | `string = UI.randomUiName()` | Text widget id. |
-| `x`, `y`, `width`, `height`, `anchor`, `parent`, `visible`, `padding`, `bgColor`, `bgAlpha`, `bgFill`, `depth` | Same defaults as `ContainerParams` but `bgColor` defaults to `UI.COLORS.WHITE` and `bgFill` defaults to `mod.UIBgFill.None`. |
+| `name` | `string` | Text widget id. |
+| `x`, `y`, `width`, `height`, `anchor`, `parent`, `visible`, `padding`, `bgColor`, `bgAlpha`, `bgFill`, `depth` | Same defaults as `ContainerParams` but `bgColor` defaults to `UI.COLORS.WHITE`, `bgAlpha` defaults to `0`, and `bgFill` defaults to `mod.UIBgFill.None`. |
 | `message` | `mod.Message = mod.Message("")` | Text label content (see `mod/index.d.ts` for message helpers). |
 | `textSize` | `number = 36` | Font size. |
 | `textColor` | `mod.Vector = UI.COLORS.BLACK` |
@@ -187,7 +181,7 @@ Builds a button by first creating a container, then calling `mod.AddUIButton`. O
 
 | Param | Type / Default | Notes |
 | --- | --- | --- |
-| `name` | `string = UI.randomUiName()` | Used as container name; actual button widget uses `${name}_button`. |
+| `name` | `string` | If provided, used as the button widget name (`buttonName`). If omitted, the container gets an auto-generated name and the button widget uses `${container.name}_button`. The returned `Button` object's `name` property always refers to the button container's name (which is auto-generated). |
 | `x`, `y`, `width`, `height`, `anchor`, `parent`, `visible`, `padding`, `bgColor`, `bgAlpha`, `bgFill`, `depth` | Inherited from `ContainerParams`, but container `bgAlpha` defaults to `0` and `bgFill` defaults to `mod.UIBgFill.None`. |
 | `buttonEnabled` | `boolean = true` |
 | `baseColor` / `baseAlpha` | `mod.Vector = UI.COLORS.WHITE`, `number = 1` |
@@ -205,13 +199,13 @@ Returns `UI.Button` with:
 - Optional `labelName`, `labelUiWidget()`, `setLabelMessage(message)`
 
 ### `UI.handleButtonClick(player, widget, event)`
-Utility callback meant for `mod.OnPlayerUIButtonEvent(player: mod.Player, widget: mod.UIWidget, event: mod.UIButtonEvent)`. Ignores `event` (the Battlefield Portal `mod.UIButtonEvent` is currently unreliable) and resolves the registered `onClick` for the pressed widget.
+Utility callback meant top be used in `mod.OnPlayerUIButtonEvent(player: mod.Player, widget: mod.UIWidget, event: mod.UIButtonEvent)` for global subscriptions. Ignores `event` (the Battlefield Portal `mod.UIButtonEvent` is currently unreliable) and resolves the registered `onClick` for the pressed widget.
 
-### `UI.randomUiName()` / `UI.randomInt(min, max)`
-Internal helpers that generate unique `id_<min>_<max>` names using `mod.RandomReal` + `mod.RoundToInteger`. Exposed for completeness; most consumers rely on the defaults.
+### `UI.parseNode(node?)`
+Internal helper that converts `mod.UIWidget | UI.Node | undefined` to `UI.Node`. If `undefined` or omitted, returns `UI.root()`. If the input is already a `Node`, returns it as-is. Otherwise, wraps the `mod.UIWidget` in a `Node` with `type: UI.Type.Unknown`.
 
 ### `UI.getPosition(widget)`
-Private helper returning `{ x: number, y: number }` via `mod.GetUIWidgetPosition`. Use the public `getPosition()` on any `UIElement`.
+Private helper returning `{ x: number, y: number }` via `mod.GetUIWidgetPosition`. Use the public `getPosition()` on any `Element`.
 
 ---
 
@@ -219,28 +213,24 @@ Private helper returning `{ x: number, y: number }` via `mod.GetUIWidgetPosition
 
 All types are defined inside the `UI` namespace in [`ui.ts`](./ui.ts).
 
-### `UI.Params`
-Base shape for positional/layout properties reused by other parameter interfaces. Defaults match the tables above.
+### `UI.Type`
+Enumeration of node types: `Root`, `Container`, `Text`, `Button`, `Unknown`.
 
-### `UI.ContainerParams extends Params`
-Adds `childrenParams?: (ContainerParams | TextParams | ButtonParams)[]`.
-
-### `UI.TextParams extends Params`
-Adds text-specific fields: `message`, `textSize`, `textColor`, `textAlpha`, `textAnchor`.
-
-### `UI.LabelParams`
-Subset of text options (`message`, `textSize`, `textColor`, `textAlpha`) used when attaching a label to a button.
-
-### `UI.ButtonParams extends Params`
-Adds button state colors (`base/disabled/pressed/hover/focused` plus alpha values), `buttonEnabled`, `onClick`, and optional `label`.
-
-### `UI.UIElement`
-Common runtime contract shared by all created widgets:
+### `UI.Node`
+Base type for all UI nodes:
 ```ts
-type UIElement = {
+type Node = {
+    type: Type;
     name: string;
     uiWidget: () => mod.UIWidget;
-    parent: mod.UIWidget;
+}
+```
+
+### `UI.Element`
+Common runtime contract shared by all created widgets. Extends `Node`:
+```ts
+type Element = Node & {
+    parent: Node;
     isVisible(): boolean;
     show(): void;
     hide(): void;
@@ -251,21 +241,111 @@ type UIElement = {
 ```
 
 ### `UI.Container`
-`UIElement & { children: Array<Container | Text | Button> }`.
+```ts
+type Container = Element & {
+    children: (Container | Text | Button)[],
+}
+```
 
 ### `UI.Text`
-`UIElement & { setMessage(message: mod.Message): void }`.
+```ts
+type Text = Element & {
+    setMessage: (message: mod.Message) => void,
+}
+```
 
 ### `UI.Button`
-`UIElement & { buttonName: string; buttonUiWidget(): mod.UIWidget; isEnabled(): boolean; enable(): void; disable(): void; labelName?: string; labelUiWidget?: () => mod.UIWidget; setLabelMessage?: (message: mod.Message) => void; }`.
+```ts
+type Button = Element & {
+    buttonName: string,
+    buttonUiWidget: () => mod.UIWidget,
+    isEnabled: () => boolean,
+    enable: () => void,
+    disable: () => void,
+    labelName?: string,
+    labelUiWidget?: () => mod.UIWidget,
+    setLabelMessage?: (message: mod.Message) => void,
+}
+```
+
+### `UI.Params`
+Base interface for positional/layout properties reused by other parameter interfaces.
+```ts
+interface Params {
+    type?: Type,
+    name?: string,
+    x?: number,
+    y?: number,
+    width?: number,
+    height?: number,
+    anchor?: mod.UIAnchor,
+    parent?: mod.UIWidget | Node,
+    visible?: boolean,
+    padding?: number,
+    bgColor?: mod.Vector,
+    bgAlpha?: number,
+    bgFill?: mod.UIBgFill,
+    depth?: mod.UIDepth,
+}
+```
+Defaults match the tables above.
+
+### `UI.ContainerParams extends Params`
+```ts
+interface ContainerParams extends Params {
+    childrenParams?: (ContainerParams | TextParams | ButtonParams)[],
+}
+```
+
+### `UI.TextParams extends Params`
+```ts
+interface TextParams extends Params {
+    message?: mod.Message,
+    textSize?: number,
+    textColor?: mod.Vector,
+    textAlpha?: number,
+    textAnchor?: mod.UIAnchor,
+}
+```
+
+### `UI.LabelParams`
+Subset of text options used when attaching a label to a button.
+```ts
+export interface LabelParams {
+    message?: mod.Message,
+    textSize?: number,
+    textColor?: mod.Vector,
+    textAlpha?: number,
+}
+```
+
+### `UI.ButtonParams extends Params`
+```ts
+export interface ButtonParams extends Params {
+    buttonEnabled?: boolean,
+    baseColor?: mod.Vector,
+    baseAlpha?: number,
+    disabledColor?: mod.Vector,
+    disabledAlpha?: number,
+    pressedColor?: mod.Vector,
+    pressedAlpha?: number,
+    hoverColor?: mod.Vector,
+    hoverAlpha?: number,
+    focusedColor?: mod.Vector,
+    focusedAlpha?: number,
+    onClick?: (player: mod.Player) => Promise<void>,
+    label?: LabelParams,
+}
+```
 
 ---
 
 ## Event Wiring & Lifecycle
 
 - Register `UI.handleButtonClick` once per mod to dispatch button presses.
-- Use the returned `UIElement` helpers to hide/show instead of calling `mod.SetUIWidgetVisible` manually.
+- Use the returned `Element` helpers to hide/show instead of calling `mod.SetUIWidgetVisible` manually.
 - Always call `delete()` when removing widgets to prevent stale references inside Battlefield Portal.
+- The `parent` property in `Params` interfaces accepts either `mod.UIWidget` or `UI.Node`, allowing you to pass a previously created native `UIWidget` as a parent.
 
 ---
 
