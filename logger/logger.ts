@@ -5,7 +5,7 @@
 
 class Logger {
 
-    static readonly PADDING: number = 10;
+    private static readonly PADDING: number = 10;
 
     constructor(
         player: mod.Player,
@@ -57,38 +57,38 @@ class Logger {
 
     private rowHeight: number;
 
-    maxRows: number;
+    public maxRows: number;
 
-    name(): string {
+    public name(): string {
         return this.window.name;
     }
 
-    isVisible(): boolean {
+    public isVisible(): boolean {
         return this.window.isVisible();
     }
 
-    show(): void {
+    public show(): void {
         this.window.show();
     }
 
-    hide(): void {
+    public hide(): void {
         this.window.hide();
     }
 
-    toggle(): void {
+    public toggle(): void {
         this.isVisible() ? this.hide() : this.show();
     }
 
-    clear(): void {
+    public clear(): void {
         Object.keys(this.rows).forEach(key => this.deleteRow(parseInt(key)));
     }
 
-    destroy(): void {
+    public destroy(): void {
         this.clear();
         this.window.delete();
     }
 
-    log(text: string, rowIndex?: number): void {
+    public log(text: string, rowIndex?: number): void {
         return this.staticRows ? this.logInRow(text, rowIndex ?? 0) : this.logNext(text);
     }
 

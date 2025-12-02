@@ -1,4 +1,4 @@
-// version: 1.1.0
+// version: 1.2.0
 
 class UI {
 
@@ -85,6 +85,8 @@ class UI {
             delete: () => mod.DeleteUIWidget(uiWidget()),
             getPosition: () => UI.getPosition(uiWidget()),
             setPosition: (x: number, y: number) => mod.SetUIWidgetPosition(uiWidget(), mod.CreateVector(x, y, 0)),
+            getSize: () => UI.getSize(uiWidget()),
+            setSize: (width: number, height: number) => mod.SetUIWidgetSize(uiWidget(), mod.CreateVector(width, height, 0)),
         };
 
         for (const childParams of params.childrenParams ?? []) {
@@ -163,6 +165,8 @@ class UI {
             delete: () => mod.DeleteUIWidget(uiWidget()),
             getPosition: () => UI.getPosition(uiWidget()),
             setPosition: (x: number, y: number) => mod.SetUIWidgetPosition(uiWidget(), mod.CreateVector(x, y, 0)),
+            getSize: () => UI.getSize(uiWidget()),
+            setSize: (width: number, height: number) => mod.SetUIWidgetSize(uiWidget(), mod.CreateVector(width, height, 0)),
             setMessage: (message: mod.Message) => mod.SetUITextLabel(uiWidget(), message),
         };
     }
@@ -221,7 +225,23 @@ class UI {
     
         const buttonUiWidget = () => mod.FindUIWidgetWithName(buttonName) as mod.UIWidget;
 
-        const button: UI.Button = {
+        const label = params.label ? UI.createText({
+            ...params.label,
+            name: `${container.name}_label`,
+            parent: containerUiWidget,
+            width: params.width,
+            height: params.height,
+            visible: true,
+            depth: params.depth,
+        }) : undefined;
+
+        const setSize = (width: number, height: number) => {
+            container.setSize(width, height);
+            mod.SetUIWidgetSize(buttonUiWidget(), mod.CreateVector(width, height, 0));
+            label?.setSize(width, height);
+        };
+
+        return {
             type: UI.Type.Button,
             name: container.name,
             uiWidget: () => containerUiWidget,
@@ -234,28 +254,15 @@ class UI {
             delete: () => mod.DeleteUIWidget(containerUiWidget),
             getPosition: () => UI.getPosition(containerUiWidget),
             setPosition: (x: number, y: number) => mod.SetUIWidgetPosition(containerUiWidget, mod.CreateVector(x, y, 0)),
+            getSize: () => UI.getSize(containerUiWidget),
+            setSize: setSize,
             isEnabled: () => mod.GetUIButtonEnabled(buttonUiWidget()),
             enable: () => mod.SetUIButtonEnabled(buttonUiWidget(), true),
             disable: () => mod.SetUIButtonEnabled(buttonUiWidget(), false),
+            labelName: label?.name,
+            labelUiWidget: label?.uiWidget,
+            setLabelMessage: label?.setMessage,
         };
-
-        if (!params.label) return button;
-
-        const label = UI.createText({
-            ...params.label,
-            name: `${button.name}_label`,
-            parent: button.uiWidget(),
-            width: params.width,
-            height: params.height,
-            visible: true,
-            depth: params.depth,
-        });
-    
-        button.labelName = `${container.name}_label`;
-        button.labelUiWidget = label.uiWidget;
-        button.setLabelMessage = label.setMessage;
-    
-        return button;
     }
 
     public static async handleButtonClick(player: mod.Player, widget: mod.UIWidget, event: mod.UIButtonEvent): Promise<void> {
@@ -289,6 +296,12 @@ class UI {
         const position = mod.GetUIWidgetPosition(widget);
         return { x: mod.XComponentOf(position), y: mod.YComponentOf(position) };
     }
+
+    private static getSize(widget: mod.UIWidget): { width: number, height: number } {
+        const size = mod.GetUIWidgetSize(widget);
+        return { width: mod.XComponentOf(size), height: mod.YComponentOf(size) };
+    }
+
 }
 
 namespace UI {
@@ -315,6 +328,8 @@ namespace UI {
         delete: () => void,
         getPosition: () => { x: number, y: number },
         setPosition: (x: number, y: number) => void,
+        getSize: () => { width: number, height: number },
+        setSize: (width: number, height: number) => void,
     }
 
     export type Container = Element & {
