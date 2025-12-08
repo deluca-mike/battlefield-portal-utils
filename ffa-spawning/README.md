@@ -22,7 +22,7 @@ The spawning system uses an intelligent algorithm to find safe spawn points that
 1. Copy the entire `FFASpawningSoldier` class and namespace from [`ffa-spawning/ffa-spawning.ts`](ffa-spawning.ts) and paste it into your mod after the required `UI` helper.
 2. Add the required string keys to your Battlefield Portal experience's `strings.json` file (see Prerequisites above).
 3. Register the button handler in your `OnPlayerUIButtonEvent` event.
-4. Call `FFASpawningSoldier.initialize()` in `OnGameModeStarted()` with your spawn point data.
+4. Call `FFASpawningSoldier.initialize()` in `OnGameModeStarted()` with your spawn point data (optional `InitializeOptions` to override spawn distance defaults).
 5. Enable spawn queue processing when ready (typically in `OnGameModeStarted()`).
 6. Create `FFASpawningSoldier` instances for each player in `OnPlayerJoinGame()`.
 7. Call `FFASpawningSoldier.startDelayForPrompt()` in `OnPlayerJoinGame()` and `OnPlayerUndeploy()` to start the spawn prompt flow.
@@ -40,7 +40,11 @@ const SPAWN_POINTS: FFASpawningSoldier.SpawnData[] = [
 
 export async function OnGameModeStarted(): Promise<void> {
     // Initialize the spawning system
-    FFASpawningSoldier.initialize(SPAWN_POINTS);
+    FFASpawningSoldier.initialize(SPAWN_POINTS, {
+        minimumSafeDistance: 20,          // Optional override (default 20)
+        maximumInterestingDistance: 40,   // Optional override (default 40)
+        safeOverInterestingFallbackFactor: 1.5, // Optional override (default 1.5)
+    });
 
     // Enable spawn queue processing
     FFASpawningSoldier.enableSpawnQueueProcessing();
@@ -87,12 +91,12 @@ The `getBestSpawnPoint()` method uses a **Prime Walking Algorithm** to efficient
 1. **Random Start** – Selects a random starting index in the spawn points array.
 2. **Prime Step Size** – Uses a randomly selected prime number (from `PRIME_STEPS`) as the step size to walk through the array. This ensures good distribution and avoids clustering.
 3. **Distance Checking** – For each candidate spawn point, calculates the distance to the closest player.
-4. **Ideal Range** – A spawn point is considered ideal if the distance to the closest player is between `SAFE_MINIMUM_DISTANCE` (20m) and `ACCEPTABLE_MAXIMUM_DISTANCE` (40m).
-5. **Fallback Selection** – If no ideal spawn point is found within `MAX_SPAWN_CHECKS` iterations, returns the spawn point with the maximum distance to the closest player.
+4. **Ideal Range** – A spawn point is considered ideal if the distance to the closest player is between `minimumSafeDistance` and `maximumInterestingDistance`.
+5. **Fallback Selection** – If no ideal spawn point is found within `MAX_SPAWN_CHECKS` iterations, two fallbacks are tracked: the most interesting "safe" spawn (>= safe distance, closest to players) and the safest "interesting" spawn (<= interesting distance, farthest from players). A scaled midpoint (`safeOverInterestingFallbackFactor` × average of the safe/interesting thresholds) decides which fallback to use, biasing toward safer options as the factor grows.
 
 ### Performance vs. Quality Tradeoff
 
-The `MAX_SPAWN_CHECKS` constant (default: 10) represents a tradeoff between:
+The `MAX_SPAWN_CHECKS` constant (default: 12) represents a tradeoff between:
 - **Performance** – Lower values reduce computation time but may miss suitable spawn points.
 - **Spawn Quality** – Higher values increase the chance of finding an ideal spawn point but require more distance calculations.
 
@@ -108,7 +112,7 @@ In rare cases, especially with many players and few spawn points, players may sp
 
 | Method | Description |
 | --- | --- |
-| `initialize(spawns: FFASpawningSoldier.SpawnData[])` | Should be called in the `OnGameModeStarted()` event. Disables both team HQs and sets up the spawn point system. `orientation` in `SpawnData` is the compass angle integer (0-360). |
+| `initialize(spawns: FFASpawningSoldier.SpawnData[], options?: FFASpawningSoldier.InitializeOptions)` | Should be called in the `OnGameModeStarted()` event. Disables both team HQs and sets up the spawn point system. `orientation` in `SpawnData` is the compass angle integer (0-360). Optional `options` let you override spawn distance defaults. |
 | `setLogging(log: (text: string) => void, logLevel?: FFASpawningSoldier.LogLevel)` | Attaches a logger function and defines a minimum log level. Useful for debugging spawn behavior. Default log level is `Info` if not specified. |
 | `startDelayForPrompt(player: mod.Player)` | Starts the countdown before prompting the player to spawn or delay again. Usually called in `OnPlayerJoinGame()` and `OnPlayerUndeploy()` events. AI soldiers will skip the countdown and spawn immediately. |
 | `forceIntoQueue(player: mod.Player)` | Forces a player to be added to the spawn queue, skipping the countdown and prompt. Useful for programmatic spawning. |
@@ -136,17 +140,18 @@ In rare cases, especially with many players and few spawn points, players may sp
 
 ---
 
-## Configuration Constants
+## Configuration & Defaults
 
-The following static constants can be modified in the source code to adjust spawning behavior:
+The following values control spawning behavior. Most can be overridden via the optional `options` argument on `initialize()`.
 
-| Constant | Type | Default | Description |
-| --- | --- | --- | --- |
-| `DELAY` | `number` | `10` | Time (in seconds) until the player is asked to spawn or delay the prompt again. |
-| `SAFE_MINIMUM_DISTANCE` | `number` | `20` | The minimum distance (in meters) a spawn point must be from another player to be considered safe. |
-| `ACCEPTABLE_MAXIMUM_DISTANCE` | `number` | `40` | The maximum distance (in meters) a spawn point must be from another player to be considered acceptable. Spawn points closer than this are preferred, but points further away may still be used as fallbacks. |
-| `MAX_SPAWN_CHECKS` | `number` | `10` | The maximum number of random spawns to consider when trying to find a spawn point for a player. Higher values improve spawn quality but reduce performance. See the [Spawn Point Selection Algorithm](#spawn-point-selection-algorithm) section for details. |
-| `QUEUE_PROCESSING_DELAY` | `number` | `1` | The delay (in seconds) between processing spawn queue batches. |
+| Setting | Type | Default | How to change | Description |
+| --- | --- | --- | --- | --- |
+| `DELAY` | `number` | `10` | Edit constant | Time (in seconds) until the player is asked to spawn or delay the prompt again. |
+| `minimumSafeDistance` | `number` | `20` | `initialize` `options.minimumSafeDistance` | Minimum distance (m) for a spawn to be considered safe. |
+| `maximumInterestingDistance` | `number` | `40` | `initialize` `options.maximumInterestingDistance` | Maximum distance (m) for a spawn to still be considered interesting (not too far). |
+| `safeOverInterestingFallbackFactor` | `number` | `1.5` | `initialize` `options.safeOverInterestingFallbackFactor` | Scales the midpoint between safe/interesting distances when picking a fallback spawn. Higher favors safer picks. |
+| `MAX_SPAWN_CHECKS` | `number` | `12` | Edit constant | Max random spawn points inspected per queue pop. Higher improves quality but costs more checks. |
+| `QUEUE_PROCESSING_DELAY` | `number` | `1` | Edit constant | Delay (seconds) between processing spawn queue batches. |
 
 ---
 
@@ -189,6 +194,18 @@ type Spawn = {
 }
 ```
 
+### `FFASpawningSoldier.InitializeOptions`
+
+Optional overrides for spawn selection thresholds when calling `initialize()`:
+
+```ts
+interface InitializeOptions {
+    minimumSafeDistance?: number;             // Default 20
+    maximumInterestingDistance?: number;      // Default 40
+    safeOverInterestingFallbackFactor?: number; // Default 1.5
+}
+```
+
 ---
 
 ## Event Wiring & Lifecycle
@@ -222,9 +239,9 @@ The following string keys must be present in your Battlefield Portal experience'
   "ffaAutoSpawningSoldier": {
     "buttons": {
       "spawn": "Spawn Now",
-      "delay": "Ask Again in {0} Seconds"
+      "delay": "Ask Again in {} Seconds"
     },
-    "countdown": "Spawning in {0}..."
+    "countdown": "Spawning in {}..."
   }
 }
 ```

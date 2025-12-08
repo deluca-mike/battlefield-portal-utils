@@ -126,7 +126,7 @@ export async function OnPlayerUIButtonEvent(player: mod.Player, widget: mod.UIWi
 - **`UI.Node` base type** – All UI nodes (root, containers, text, buttons) have a `type`, `name`, and `uiWidget()` function.
 - **`UI.Element` base contract** – All created elements extend `Node` and expose `parent` (a `Node`), `isVisible()`, `show()`, `hide()`, `delete()`, `getPosition()`, and `setPosition(x, y)`.
 - **`UI.CLICK_HANDLERS`** – Internal `Map<string, (player) => Promise<void>>` that binds `onClick` callbacks to button widget names. `UI.handleButtonClick` looks up handlers when Battlefield Portal fires `OnButtonPressed`.
-- **Default colors** – `UI.COLORS` wraps common `mod.CreateVector(r, g, b)` presets so you rarely need to build vectors yourself.
+- **Default colors** – `UI.COLORS` wraps common `mod.CreateVector(r, g, b)` presets so you rarely need to build vectors yourself. It includes BF pallete colors.
 - **Receiver routing** – `createContainer`/`createText`/`createButton` optionally accept `mod.Player | mod.Team` to display UI to a specific audience. When omitted, the widgets are global.
 
 ---
@@ -134,7 +134,7 @@ export async function OnPlayerUIButtonEvent(player: mod.Player, widget: mod.UIWi
 ## API Reference
 
 ### `UI.COLORS`
-Prebuilt `mod.Vector` colors: `BLACK`, `GREY_25`, `GREY_50`, `GREY_75`, `WHITE`, `RED`, `GREEN`, `BLUE`, `YELLOW`, `PURPLE`, `CYAN`, `MAGENTA`.
+Prebuilt `mod.Vector` colors for basic colors and BF6 palette colors.
 
 ### `UI.root(): UI.Node`
 Returns the root node wrapping `mod.GetUIRoot()`. All elements default to this parent unless you supply `parent` in params. The root node is lazily initialized and cached.
@@ -151,7 +151,7 @@ Creates a container (`mod.AddUIContainer`) and any nested children defined via `
 | `parent` | `mod.UIWidget \| UI.Node \| undefined` | Parent widget or node. Defaults to `UI.root()` when omitted. |
 | `visible` | `boolean = true` | Initial visibility. |
 | `padding` | `number = 0` | Container padding. |
-| `bgColor` | `mod.Vector = UI.COLORS.BLACK` | Background color. |
+| `bgColor` | `mod.Vector = UI.COLORS.BF_GREY_4` | Background color. |
 | `bgAlpha` | `number = 1` | Background opacity. |
 | `bgFill` | `mod.UIBgFill = mod.UIBgFill.Solid` | Fill mode. |
 | `depth` | `mod.UIDepth = mod.UIDepth.AboveGameUI` | Z-order. |
@@ -184,11 +184,12 @@ Builds a button by first creating a container, then calling `mod.AddUIButton`. O
 | `name` | `string` | If provided, used as the button widget name (`buttonName`). If omitted, the container gets an auto-generated name and the button widget uses `${container.name}_button`. The returned `Button` object's `name` property always refers to the button container's name (which is auto-generated). |
 | `x`, `y`, `width`, `height`, `anchor`, `parent`, `visible`, `padding`, `bgColor`, `bgAlpha`, `bgFill`, `depth` | Inherited from `ContainerParams`, but container `bgAlpha` defaults to `0` and `bgFill` defaults to `mod.UIBgFill.None`. |
 | `buttonEnabled` | `boolean = true` |
-| `baseColor` / `baseAlpha` | `mod.Vector = UI.COLORS.WHITE`, `number = 1` |
-| `disabledColor` / `disabledAlpha` | `mod.Vector = UI.COLORS.GREY_50`, `number = 1` |
+| `bgColor` / `bgALpha` / `bgFill` | `mod.Vector = UI.COLORS.WHITE`, `number = 1`, `mod.UIBgFill.Solid` |
+| `baseColor` / `baseAlpha` | `mod.Vector = UI.COLORS.BF_GREY_2`, `number = 1` |
+| `disabledColor` / `disabledAlpha` | `mod.Vector = UI.COLORS.BF_GREY_3`, `number = 1` |
 | `pressedColor` / `pressedAlpha` | `mod.Vector = UI.COLORS.GREEN`, `number = 1` |
-| `hoverColor` / `hoverAlpha` | `mod.Vector = UI.COLORS.CYAN`, `number = 1` |
-| `focusedColor` / `focusedAlpha` | `mod.Vector = UI.COLORS.YELLOW`, `number = 1` |
+| `hoverColor` / `hoverAlpha` | `mod.Vector = UI.COLORS.BF_GREY_1`, `number = 1` |
+| `focusedColor` / `focusedAlpha` | `mod.Vector = UI.COLORS.BF_GREY_1`, `number = 1` |
 | `onClick` | `(player: mod.Player) => Promise<void>` | Handler stored in `UI.CLICK_HANDLERS`. |
 | `label` | `UI.LabelParams \| undefined` | Adds centered text via `createText`. Label inherits `width/height/depth` and forces `visible = true`. |
 | `receiver` | `mod.Player \| mod.Team \| undefined` |

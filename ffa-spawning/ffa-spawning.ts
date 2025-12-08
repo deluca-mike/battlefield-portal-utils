@@ -1,4 +1,4 @@
-// version: 1.0.0
+// version: 1.1.0
 
 // NOTE: Requires the UI module.
 
@@ -9,21 +9,24 @@ class FFASpawningSoldier {
     // Time until the player is asked to spawn to delay the prompt again.
     private static readonly DELAY: number = 10;
 
-    // The minimum distance a spawn point must be to another player to be considered safe.
-    private static readonly SAFE_MINIMUM_DISTANCE: number = 20;
-    
-    // The maximum distance a spawn point must be to another player to be considered acceptable.
-    private static readonly ACCEPTABLE_MAXIMUM_DISTANCE: number = 40;
-
     private static readonly PRIME_STEPS: number[] = [2039, 2027, 2017];
 
     // The maximum number of random spawns to consider when trying to find a spawn point for a player.
-    private static readonly MAX_SPAWN_CHECKS: number = 10;
+    private static readonly MAX_SPAWN_CHECKS: number = 12;
 
     // The delay between processing the spawn queue.
     private static readonly QUEUE_PROCESSING_DELAY: number = 1;
 
     private static spawns: FFASpawningSoldier.Spawn[] = [];
+
+    // The minimum distance a spawn point must be to another player to be considered safe.
+    private static minimumSafeDistance: number = 20;
+    
+    // The maximum distance a spawn point must be to another player to be considered acceptable.
+    private static maximumInterestingDistance: number = 40;
+
+    // The amount to scale the midpoint between the `minimumSafeDistance` and `maximumInterestingDistance` to evaluate a fallback spawn.
+    private static safeOverInterestingFallbackFactor: number = 1.5;
 
     private static spawnQueue: FFASpawningSoldier[] = [];
 
@@ -46,40 +49,65 @@ class FFASpawningSoldier {
     }
 
     private static getBestSpawnPoint(): FFASpawningSoldier.Spawn {
-        // Prime Walking Algorithm
-        const primeSteps = FFASpawningSoldier.PRIME_STEPS;
+        const primeSteps = FFASpawningSoldier.PRIME_STEPS; // Prime Walking Algorithm
         const stepSize = primeSteps[~~mod.RandomReal(0, primeSteps.length) % primeSteps.length]; // Mod because `RandomReal` is apparently inclusive of the end value.
         const spawns = FFASpawningSoldier.spawns;
         const startIndex = ~~mod.RandomReal(0, spawns.length) % spawns.length; // Mod because `RandomReal` is apparently inclusive of the end value.
 
-        let bestFallback: FFASpawningSoldier.Spawn = spawns[startIndex];
-        let maxDistance = -1;
+        let safeFallbackSpawn: FFASpawningSoldier.Spawn | undefined = undefined;
+        let safeFallbackDistance: number = Number.MAX_SAFE_INTEGER;
+
+        let interestingFallbackSpawn: FFASpawningSoldier.Spawn | undefined = undefined;
+        let interestingFallbackDistance: number = -1;
 
         for (let i = 0; i < FFASpawningSoldier.MAX_SPAWN_CHECKS; ++i) {
             const index = (startIndex + (i * stepSize)) % spawns.length;
             const candidate = spawns[index];
-            const distanceToClosestPlayer = FFASpawningSoldier.getDistanceToClosestPlayer(candidate.location);
+            const distance = FFASpawningSoldier.getDistanceToClosestPlayer(candidate.location);
         
-            if (distanceToClosestPlayer >= FFASpawningSoldier.SAFE_MINIMUM_DISTANCE && distanceToClosestPlayer <= FFASpawningSoldier.ACCEPTABLE_MAXIMUM_DISTANCE) {
-                FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Spawn-${index} is ideal (${distanceToClosestPlayer.toFixed(2)}m).`);
+            // If the spawn is ideal, return it.
+            if (distance >= FFASpawningSoldier.minimumSafeDistance && distance <= FFASpawningSoldier.maximumInterestingDistance) {
+                FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Spawn-${index} is ideal (${distance.toFixed(2)}m).`);
                 return candidate; 
             }
 
-            if (distanceToClosestPlayer <= maxDistance) continue;
-        
-            bestFallback = candidate;
-            maxDistance = distanceToClosestPlayer;
+            if (distance >= FFASpawningSoldier.minimumSafeDistance) {
+                // If the spawn is safe but not interesting, check if its more interesting than the current most interesting safe fallback.
+                if (distance < safeFallbackDistance) {
+                    safeFallbackSpawn = candidate;
+                    safeFallbackDistance = distance;
+                }
+            } else if (distance <= FFASpawningSoldier.maximumInterestingDistance) {
+                // If the spawn is interesting but not safe, check if its safer than the current safest interesting fallback.
+                if (distance > interestingFallbackDistance) {
+                    interestingFallbackSpawn = candidate;
+                    interestingFallbackDistance = distance;
+                }
+            }
         }
 
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `Spawn-${bestFallback.index} is the non-ideal fallback (${maxDistance.toFixed(2)}m).`);
+        if (!safeFallbackSpawn) return interestingFallbackSpawn ?? spawns[startIndex]; // No safe fallback, return the interesting fallback.
 
-        return bestFallback;
+        if (!interestingFallbackSpawn) return safeFallbackSpawn; // No interesting fallback, return the safe fallback.
+
+        // Get the midpoint between the `minimumSafeDistance` and `maximumInterestingDistance` and scale it by the `safeOverInterestingFallbackFactor`.
+        const scaledMidpoint = FFASpawningSoldier.safeOverInterestingFallbackFactor * (FFASpawningSoldier.minimumSafeDistance + FFASpawningSoldier.maximumInterestingDistance) / 2;
+
+        // Determine the fallback spawn by comparing the distance to the scaled midpoint. A higher `safeOverInterestingFallbackFactor` will favour the safe fallback more.
+        const { spawn, distance } =
+            safeFallbackDistance - scaledMidpoint < scaledMidpoint - interestingFallbackDistance
+                ? { spawn: safeFallbackSpawn, distance: safeFallbackDistance }
+                : { spawn: interestingFallbackSpawn, distance: interestingFallbackDistance };
+
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `Spawn-${spawn.index} is the non-ideal fallback (${distance.toFixed(2)}m).`);
+
+        return spawn;
     }
 
     private static getDistanceToClosestPlayer(location: mod.Vector): number {
         const closestPlayer = mod.ClosestPlayerTo(location);
 
-        if (!mod.IsPlayerValid(closestPlayer)) return FFASpawningSoldier.SAFE_MINIMUM_DISTANCE; // No players alive on the map.
+        if (!mod.IsPlayerValid(closestPlayer)) return FFASpawningSoldier.minimumSafeDistance; // No players alive on the map.
 
         return mod.DistanceBetween(location, mod.GetSoldierState(closestPlayer, mod.SoldierStateVector.GetPosition));
     }
@@ -113,7 +141,7 @@ class FFASpawningSoldier {
 
             const spawn = FFASpawningSoldier.getBestSpawnPoint();
 
-            FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Spawning Player-${soldier.playerId} at ${FFASpawningSoldier.getVectorString(spawn.location)}.`);
+            FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Spawning P-${soldier.playerId} at ${FFASpawningSoldier.getVectorString(spawn.location)}.`);
 
             mod.SpawnPlayerFromSpawnPoint(soldier.player, spawn.spawnPoint);
         }
@@ -126,31 +154,35 @@ class FFASpawningSoldier {
     }
 
     // Attaches a logger and defines a minimum log level.
-    public static setLogging(log: (text: string) => void, logLevel?: FFASpawningSoldier.LogLevel): void {
+    public static setLogging(log?: (text: string) => void, logLevel?: FFASpawningSoldier.LogLevel): void {
         FFASpawningSoldier.logger = log;
         FFASpawningSoldier.logLevel = logLevel ?? FFASpawningSoldier.LogLevel.Info;
     }
 
     // Should be called in the `OnGameModeStarted()` event. Orientation is the compass angle integer.
-    public static initialize(spawns: FFASpawningSoldier.SpawnData[]): void {
+    public static initialize(spawns: FFASpawningSoldier.SpawnData[], options?: FFASpawningSoldier.InitializeOptions): void {
         mod.EnableHQ(mod.GetHQ(1), false);
         mod.EnableHQ(mod.GetHQ(2), false);
 
         FFASpawningSoldier.spawns = spawns.map((spawn, index) => {
             return {
                 index: index,
-                spawnPoint: mod.GetSpawnPoint(mod.GetObjId(mod.SpawnObject(mod.RuntimeSpawn_Common.PlayerSpawner, spawn.location, FFASpawningSoldier.getRotationVector(spawn.orientation)))), // TODO: check if this can be just `as mod.SpawnPoint`.
+                spawnPoint: mod.SpawnObject(mod.RuntimeSpawn_Common.PlayerSpawner, spawn.location, FFASpawningSoldier.getRotationVector(spawn.orientation)),
                 location: spawn.location
             };
         });
 
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `Set ${FFASpawningSoldier.spawns.length} spawn points.`);
+        this.minimumSafeDistance = options?.minimumSafeDistance ?? this.minimumSafeDistance;
+        this.maximumInterestingDistance = options?.maximumInterestingDistance ?? this.maximumInterestingDistance;
+        this.safeOverInterestingFallbackFactor = options?.safeOverInterestingFallbackFactor ?? this.safeOverInterestingFallbackFactor;
+
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `Set ${FFASpawningSoldier.spawns.length} spawn points (S: ${this.minimumSafeDistance}m, I: ${this.maximumInterestingDistance}m, F: ${this.safeOverInterestingFallbackFactor}).`);
     }
 
     // Starts the countdown before prompting the player to spawn or delay again, usually in the `OnPlayerJoinGame()` and `OnPlayerUndeploy()` events.
     // AI soldiers will skip the countdown and spawn immediately.
     public static startDelayForPrompt(player: mod.Player): void {
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Start delay request for Player-${mod.GetObjId(player)}.`);
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Start delay request for P-${mod.GetObjId(player)}.`);
 
         const soldier = FFASpawningSoldier.allSoldiers[mod.GetObjId(player)];
 
@@ -187,7 +219,7 @@ class FFASpawningSoldier {
         FFASpawningSoldier.queueProcessingEnabled = false;
     }
 
-    // Every player that should be handled by this spawning system should be instantiated as a `FFASpawningSoldier`, usually in the `OnPlayerJoinGame()` event.
+    // Every player that should be handled by this spawning system should be instantiated as a `FFASpawningSoldier`, usually in the `OnPlayerSpawned()` event.
     constructor(player: mod.Player) {
         this.player = player;
         this.playerId = mod.GetObjId(player);
@@ -199,26 +231,34 @@ class FFASpawningSoldier {
         this.promptUI = UI.createContainer({
             x: 0,
             y: 0,
-            width: 400,
-            height: 80,
+            width: 440,
+            height: 140,
             anchor: mod.UIAnchor.Center,
-            bgColor: UI.COLORS.BLACK,
-            bgAlpha: 0.5,
             visible: false,
+            bgColor: UI.COLORS.BF_GREY_4,
+            bgAlpha: 0.5,
+            bgFill: mod.UIBgFill.Blur,
             childrenParams: [
                 {
                     type: UI.Type.Button,
                     x: 0,
-                    y: 40,
+                    y: 20,
                     width: 400,
                     height: 40,
                     anchor: mod.UIAnchor.TopCenter,
-                    bgColor: UI.COLORS.GREY_25,
-                    baseColor: UI.COLORS.BLACK,
+                    bgColor: UI.COLORS.BF_GREY_2,
+                    baseColor: UI.COLORS.BF_GREY_2,
+                    baseAlpha: 1,
+                    pressedColor: UI.COLORS.BF_GREEN_DARK,
+                    pressedAlpha: 1,
+                    hoverColor: UI.COLORS.BF_GREY_1,
+                    hoverAlpha: 1,
+                    focusedColor: UI.COLORS.BF_GREY_1,
+                    focusedAlpha: 1,
                     label: {
                         message: mod.Message(mod.stringkeys.ffaAutoSpawningSoldier.buttons.spawn),
                         textSize: 30,
-                        textColor: UI.COLORS.GREEN,
+                        textColor: UI.COLORS.BF_GREEN_BRIGHT,
                     },
                     onClick: async (player: mod.Player): Promise<void> => {
                         this.addToQueue();
@@ -227,16 +267,23 @@ class FFASpawningSoldier {
                 {
                     type: UI.Type.Button,
                     x: 0,
-                    y: 0,
+                    y: 80,
                     width: 400,
                     height: 40,
                     anchor: mod.UIAnchor.TopCenter,
-                    bgColor: UI.COLORS.GREY_25,
-                    baseColor: UI.COLORS.BLACK,
+                    bgColor: UI.COLORS.BF_GREY_2,
+                    baseColor: UI.COLORS.BF_GREY_2,
+                    baseAlpha: 1,
+                    pressedColor: UI.COLORS.BF_YELLOW_DARK,
+                    pressedAlpha: 1,
+                    hoverColor: UI.COLORS.BF_GREY_1,
+                    hoverAlpha: 1,
+                    focusedColor: UI.COLORS.BF_GREY_1,
+                    focusedAlpha: 1,
                     label: {
                         message: mod.Message(mod.stringkeys.ffaAutoSpawningSoldier.buttons.delay, FFASpawningSoldier.DELAY),
                         textSize: 30,
-                        textColor: UI.COLORS.GREEN,
+                        textColor: UI.COLORS.BF_YELLOW_BRIGHT,
                     },
                     onClick: async (player: mod.Player): Promise<void> => {
                         this.startDelayForPrompt();
@@ -249,15 +296,14 @@ class FFASpawningSoldier {
             x: 0,
             y: 60,
             width: 400,
-            height: 30,
+            height: 50,
             anchor: mod.UIAnchor.TopCenter,
             message: mod.Message(mod.stringkeys.ffaAutoSpawningSoldier.countdown, this.delayCountdown),
             textSize: 30,
-            textColor: UI.COLORS.GREEN,
-            bgColor: UI.COLORS.BLACK,
+            textColor: UI.COLORS.BF_GREEN_BRIGHT,
+            bgColor: UI.COLORS.BF_GREY_4,
             bgAlpha: 0.5,
             bgFill: mod.UIBgFill.Solid,
-            padding: 5,
             visible: false,
         }, player);
     }
@@ -275,12 +321,9 @@ class FFASpawningSoldier {
     // Starts the countdown before prompting the player to spawn or delay again, usually in the `OnPlayerJoinGame()` and `OnPlayerUndeploy()` events.
     // AI soldiers will skip the countdown and spawn immediately.
     public startDelayForPrompt(): void {
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Starting delay for Player-${this.playerId}.`);
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Starting delay for P-${this.playerId}.`);
 
-        if (mod.GetSoldierState(this.player, mod.SoldierStateBool.IsAISoldier)) {
-            this.addToQueue();
-            return;
-        }
+        if (mod.GetSoldierState(this.player, mod.SoldierStateBool.IsAISoldier)) return this.addToQueue();
 
         this.countdownUI?.show();
         this.promptUI?.hide();
@@ -309,7 +352,7 @@ class FFASpawningSoldier {
     private addToQueue(): void {
         FFASpawningSoldier.spawnQueue.push(this);
 
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `Player-${this.playerId} added to queue (${FFASpawningSoldier.spawnQueue.length} total).`);
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `P-${this.playerId} added to queue (${FFASpawningSoldier.spawnQueue.length} total).`);
 
         this.countdownUI?.hide();
         this.promptUI?.hide();
@@ -324,7 +367,7 @@ class FFASpawningSoldier {
     private deleteIfNotValid(): boolean {
         if (mod.IsPlayerValid(this.player)) return false;
 
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `Player-${this.playerId} is no longer in the game.`);
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `P-${this.playerId} is no longer in the game.`);
 
         this.promptUI?.delete();
         this.countdownUI?.delete();
@@ -351,6 +394,12 @@ namespace FFASpawningSoldier {
         index: number;
         spawnPoint: mod.SpawnPoint;
         location: mod.Vector;
+    }
+
+    export interface InitializeOptions {
+        minimumSafeDistance?: number;
+        maximumInterestingDistance?: number;
+        safeOverInterestingFallbackFactor?: number;
     }
 
 }

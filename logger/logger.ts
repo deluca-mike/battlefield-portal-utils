@@ -1,4 +1,4 @@
-// version: 1.1.1
+// version: 1.2.1
 
 // NOTE: Requires the UI module.
 // NOTE: Requires the contents of the `logger.strings.json` file to be loaded.
@@ -13,7 +13,7 @@ class Logger {
     ) {
         this.width = options?.width ?? 400;
         this.height = options?.height ?? 300;
-        this.textColor = options?.textColor ?? UI.COLORS.GREEN;
+        this.textColor = options?.textColor ?? UI.COLORS.BF_GREEN_BRIGHT;
 
         this.window = UI.createContainer({
             x: options?.x ?? 10,
@@ -22,8 +22,9 @@ class Logger {
             height: this.height,
             parent: options?.parent,
             anchor: options?.anchor ?? mod.UIAnchor.TopLeft,
-            bgColor: options?.bgColor ?? UI.COLORS.BLACK,
+            bgColor: options?.bgColor ?? UI.COLORS.BF_GREY_4,
             bgAlpha: options?.bgAlpha ?? 0.5,
+            bgFill: options?.bgFill ?? mod.UIBgFill.Blur,
             padding: Logger.PADDING,
             visible: options?.visible ?? false,
         }, player);

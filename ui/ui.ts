@@ -1,4 +1,4 @@
-// version: 1.3.0
+// version: 1.3.1
 
 class UI {
 
@@ -17,6 +17,18 @@ class UI {
         PURPLE: mod.CreateVector(1, 0, 1),
         CYAN: mod.CreateVector(0, 1, 1),
         MAGENTA: mod.CreateVector(1, 0, 1),
+        BF_GREY_1: mod.CreateVector(0.8353, 0.9216, 0.9765), // D5EBF9
+        BF_GREY_2: mod.CreateVector(0.3294, 0.3686, 0.3882), // 545E63
+        BF_GREY_3: mod.CreateVector(0.2118, 0.2235, 0.2353), // 36393C
+        BF_GREY_4: mod.CreateVector(0.0314, 0.0431, 0.0431), // 080B0B,
+        BF_BLUE_BRIGHT: mod.CreateVector(0.4392, 0.9216, 1.0000), // 70EBFF
+        BF_BLUE_DARK: mod.CreateVector(0.0745, 0.1843, 0.2471), // 132F3F
+        BF_RED_BRIGHT: mod.CreateVector(1.0000, 0.5137, 0.3804), // FF8361
+        BF_RED_DARK: mod.CreateVector(0.2510, 0.0941, 0.0667), // 401811
+        BF_GREEN_BRIGHT: mod.CreateVector(0.6784, 0.9922, 0.5255), // ADFD86
+        BF_GREEN_DARK: mod.CreateVector(0.2784, 0.4471, 0.2118), // 477236
+        BF_YELLOW_BRIGHT: mod.CreateVector(1.0000, 0.9882, 0.6118), // FFFC9C
+        BF_YELLOW_DARK: mod.CreateVector(0.4431, 0.3765, 0.0000), // 716000
     };
 
     private static rootNode: UI.Node;
@@ -59,7 +71,7 @@ class UI {
             parent.uiWidget(),
             params.visible ?? true,
             params.padding ?? 0,
-            params.bgColor ?? UI.COLORS.BLACK,
+            params.bgColor ?? UI.COLORS.BF_GREY_4,
             params.bgAlpha ?? 1,
             params.bgFill ?? mod.UIBgFill.Solid,
             params.depth ?? mod.UIDepth.AboveGameUI,
@@ -183,10 +195,10 @@ class UI {
             parent: parent,
             visible: params.visible,
             padding: 0,
-            bgColor: UI.COLORS.BLACK,
+            bgColor: UI.COLORS.BF_GREY_4,
             bgAlpha: 0,
             bgFill: mod.UIBgFill.None,
-            depth: params.depth,
+            depth: params.depth ?? mod.UIDepth.AboveGameUI,
         };
     
         const container = UI.createContainer(containerParams, receiver);
@@ -202,19 +214,19 @@ class UI {
             containerUiWidget,
             true,
             params.padding ?? 0,
-            params.bgColor ?? UI.COLORS.BLACK,
+            params.bgColor ?? UI.COLORS.WHITE,
             params.bgAlpha ?? 1,
             params.bgFill ?? mod.UIBgFill.Solid,
             params.buttonEnabled ?? true,
-            params.baseColor ?? UI.COLORS.WHITE,
+            params.baseColor ?? UI.COLORS.BF_GREY_2,
             params.baseAlpha ?? 1,
-            params.disabledColor ?? UI.COLORS.GREY_50,
+            params.disabledColor ?? UI.COLORS.BF_GREY_3,
             params.disabledAlpha ?? 1,
-            params.pressedColor ?? UI.COLORS.GREEN,
+            params.pressedColor ?? UI.COLORS.BF_GREEN_BRIGHT,
             params.pressedAlpha ?? 1,
-            params.hoverColor ?? UI.COLORS.CYAN,
+            params.hoverColor ?? UI.COLORS.BF_GREY_1,
             params.hoverAlpha ?? 1,
-            params.focusedColor ?? UI.COLORS.YELLOW,
+            params.focusedColor ?? UI.COLORS.BF_GREY_1,
             params.focusedAlpha ?? 1,
             params.depth ?? mod.UIDepth.AboveGameUI,
         );
