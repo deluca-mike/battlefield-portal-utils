@@ -1,7 +1,5 @@
-// version 1.0.0
+// version 1.1.0
 
-// TODO: Consider a `play` function on `Sounds.PlayedSound` that plays it again and extended the time, or if not available, provisions a new sound object.
-// TODO: A purge function or dispose function for old sound objects.
 class Sounds {
 
     private static readonly DURATION_BUFFER: number = 1;
@@ -10,9 +8,15 @@ class Sounds {
 
     private static readonly DEFAULT_3D_DURATION: number = 10;
 
+    // A mapping of arrays of sound objects for each sfx asset that has been requested.
+    // This mechanism ensures efficient sound management by reusing sound objects and avoiding unnecessary spawns.
+    private static readonly SOUND_OBJECT_POOL: Map<mod.RuntimeSpawn_Common, Sounds.SoundObject[]> = new Map();
+
     private static logger?: (text: string) => void;
 
     private static logLevel: Sounds.LogLevel = 2;
+
+    private static soundObjectsCount: number = 0;
 
     private static log(logLevel: Sounds.LogLevel, text: string): void {
         if (logLevel < Sounds.logLevel) return;
@@ -24,21 +28,32 @@ class Sounds {
         return `<${mod.XComponentOf(vector).toFixed(2)}, ${mod.YComponentOf(vector).toFixed(2)}, ${mod.ZComponentOf(vector).toFixed(2)}>`;
     }
 
-    // A mapping of arrays of sound objects for each sfx asset that has been requested.
-    // This mechanism ensures efficient sound management by reusing sound objects and avoiding unnecessary spawns.
-    private static soundObjects: Map<mod.RuntimeSpawn_Common, Sounds.SoundObject[]> = new Map();
-
     // Returns the array of `SoundObject` for the given sfx asset, and initializes the array if it doesn't exist.
     private static getSoundObjects(sfxAsset: mod.RuntimeSpawn_Common): Sounds.SoundObject[] {
-        const soundObjects = this.soundObjects.get(sfxAsset);
+        const soundObjects = this.SOUND_OBJECT_POOL.get(sfxAsset);
 
         if (soundObjects) return soundObjects;
 
-        this.soundObjects.set(sfxAsset, []);
+        this.SOUND_OBJECT_POOL.set(sfxAsset, []);
 
         this.log(Sounds.LogLevel.Debug, `SoundObjects for new SFX asset initialized.`);
 
-        return this.soundObjects.get(sfxAsset)!;
+        return this.SOUND_OBJECT_POOL.get(sfxAsset)!;
+    }
+
+    private static createSoundObject(soundObjects: Sounds.SoundObject[], sfxAsset: mod.RuntimeSpawn_Common): Sounds.SoundObject {
+        const newSoundObject = {
+            sfx: mod.SpawnObject(sfxAsset, mod.CreateVector(0, 0, 0), mod.CreateVector(0, 0, 0)),
+            availableTime: 0,
+        }
+
+        this.soundObjectsCount++;
+
+        soundObjects.push(newSoundObject);
+
+        this.log(Sounds.LogLevel.Debug, `New SoundObject created. SFX ssset now has ${soundObjects.length} SoundObjects.`);
+
+        return newSoundObject;
     }
 
     // Returns the first available `SoundObject` for the given sfx asset, and creates a new `SoundObject` if none is available.
@@ -48,20 +63,11 @@ class Sounds {
         const soundObject = soundObjects.find((soundObject) => curentTime >= soundObject.availableTime);
 
         if (soundObject) {
-            this.log(Sounds.LogLevel.Debug, `Available SoundObject found.`);
+            this.log(Sounds.LogLevel.Debug, `Available SoundObject found (in array of ${soundObjects.length} SoundObjects).`);
             return soundObject;
         }
 
-        const newSoundObject = {
-            sfx: mod.SpawnObject(sfxAsset, mod.CreateVector(0, 0, 0), mod.CreateVector(0, 0, 0)),
-            availableTime: 0,
-        }
-
-        soundObjects.push(newSoundObject);
-
-        this.log(Sounds.LogLevel.Debug, `New SoundObject created. SFX ssset now has ${soundObjects.length} SoundObjects.`);
-
-        return newSoundObject;
+        return this.createSoundObject(soundObjects, sfxAsset);
     }
 
     // Creates a `PlayedSound` with that will automatically stop the underlying sound after the specified duration, and that can be stopped manually.
@@ -154,6 +160,27 @@ class Sounds {
     public static setLogging(log?: (text: string) => void, logLevel?: Sounds.LogLevel): void {
         Sounds.logger = log;
         Sounds.logLevel = logLevel ?? Sounds.LogLevel.Info;
+    }
+
+    // Creates a new `SoundObject` for the given sfx asset if it doesn't exist.
+    // This helps the game client load the sound asset in memory to it can play quicker when needed.
+    // This is onyl needed once per asset, if at all.
+    public static preload(sfxAsset: mod.RuntimeSpawn_Common): void {
+        const soundObjects = this.getSoundObjects(sfxAsset);
+
+        if (soundObjects.length) return;
+
+        this.createSoundObject(soundObjects, sfxAsset);
+    }
+
+    // Returns the total number of `SoundObject`s created.
+    public static get objectCount(): number {
+        return this.soundObjectsCount;
+    }
+
+    // Returns the number of `SoundObject`s created for the given sfx asset.
+    public static objectCountForAsset(sfxAsset: mod.RuntimeSpawn_Common): number {
+        return this.getSoundObjects(sfxAsset).length;
     }
 
 }

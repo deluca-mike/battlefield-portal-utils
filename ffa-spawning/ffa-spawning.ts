@@ -141,14 +141,14 @@ class FFASpawningSoldier {
 
             const spawn = FFASpawningSoldier.getBestSpawnPoint();
 
-            FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Spawning P-${soldier.playerId} at ${FFASpawningSoldier.getVectorString(spawn.location)}.`);
+            FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Spawning P_${soldier.playerId} at ${FFASpawningSoldier.getVectorString(spawn.location)}.`);
 
             mod.SpawnPlayerFromSpawnPoint(soldier.player, spawn.spawnPoint);
         }
 
         mod.Wait(FFASpawningSoldier.QUEUE_PROCESSING_DELAY).then(() => FFASpawningSoldier.processSpawnQueue());
     }
-    
+
     public static getVectorString(vector: mod.Vector): string {
         return `<${mod.XComponentOf(vector).toFixed(2)}, ${mod.YComponentOf(vector).toFixed(2)}, ${mod.ZComponentOf(vector).toFixed(2)}>`;
     }
@@ -182,7 +182,7 @@ class FFASpawningSoldier {
     // Starts the countdown before prompting the player to spawn or delay again, usually in the `OnPlayerJoinGame()` and `OnPlayerUndeploy()` events.
     // AI soldiers will skip the countdown and spawn immediately.
     public static startDelayForPrompt(player: mod.Player): void {
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Start delay request for P-${mod.GetObjId(player)}.`);
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Start delay request for P_${mod.GetObjId(player)}.`);
 
         const soldier = FFASpawningSoldier.allSoldiers[mod.GetObjId(player)];
 
@@ -321,7 +321,7 @@ class FFASpawningSoldier {
     // Starts the countdown before prompting the player to spawn or delay again, usually in the `OnPlayerJoinGame()` and `OnPlayerUndeploy()` events.
     // AI soldiers will skip the countdown and spawn immediately.
     public startDelayForPrompt(): void {
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Starting delay for P-${this.playerId}.`);
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `Starting delay for P_${this.playerId}.`);
 
         if (mod.GetSoldierState(this.player, mod.SoldierStateBool.IsAISoldier)) return this.addToQueue();
 
@@ -352,7 +352,7 @@ class FFASpawningSoldier {
     private addToQueue(): void {
         FFASpawningSoldier.spawnQueue.push(this);
 
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `P-${this.playerId} added to queue (${FFASpawningSoldier.spawnQueue.length} total).`);
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Debug, `P_${this.playerId} added to queue (${FFASpawningSoldier.spawnQueue.length} total).`);
 
         this.countdownUI?.hide();
         this.promptUI?.hide();
@@ -367,7 +367,7 @@ class FFASpawningSoldier {
     private deleteIfNotValid(): boolean {
         if (mod.IsPlayerValid(this.player)) return false;
 
-        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `P-${this.playerId} is no longer in the game.`);
+        FFASpawningSoldier.log(FFASpawningSoldier.LogLevel.Info, `P_${this.playerId} is no longer in the game.`);
 
         this.promptUI?.delete();
         this.countdownUI?.delete();

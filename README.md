@@ -10,6 +10,16 @@ This repository is organized into focused modules, each addressing specific deve
 
 - **[UI Helper Module](./ui/)** – Object-oriented TypeScript wrappers around Battlefield Portal's UI APIs, providing strongly typed helpers, convenient defaults, and ergonomic interfaces for building complex HUDs, panels, and interactive buttons.
 
+- **[FFA Spawning Module](./ffa-spawning/)** – Enables Free For All (FFA) spawning for custom Battlefield Portal experiences by short-circuiting the normal deploy process in favor of a custom UI prompt. Uses an intelligent algorithm to find safe spawn points that are appropriately distanced from other players, reducing the chance of spawning directly into combat. It also handles AI players.
+
+- **[Interact Multi-Click Detector Module](./interact-multi-click-detector/)** – Detects when a player has multi-clicked the interact key, even when there is no interactable object nearby. This utility enables custom UI triggers and special actions without relying on in-world physical interaction points or awkward movement combinations.
+
+- **[Map Detector Module](./map-detector/)** – Detects the current map by analyzing the coordinates of Team 1's Headquarters (HQ), providing a reliable alternative to the broken `mod.IsCurrentMap` API. Supports detection of all available maps with fast, coordinate-based identification.
+
+- **[Performance Stats Module](./performance-stats/)** – Monitors and tracks the estimated runtime tick rate of the server, providing real-time performance metrics that help identify when the server is under stress or when script callbacks are being deprioritized by the game engine.
+
+- **[Sounds Module](./sounds/)** – Abstracts away the nuance, oddities, and pitfalls of playing sounds at runtime in Battlefield Portal experiences. Provides efficient sound object management through automatic pooling and reuse, handles different playback scenarios (2D global, 2D per-player/squad/team, and 3D positional), and manages sound durations automatically.
+
 - **[Type Definitions](./mod/)** – Complete TypeScript type declarations for Battlefield Portal's `mod` namespace, essential for type-safe development. Additonal unofficial comments and documentation are added.
 
 ## Getting Started

@@ -1,64 +1,111 @@
-// version 1.0.0
+// version 1.1.0
 
 class MapDetector {
 
-    public static getCurrentMap(): mod.Maps | undefined {
+    private static hqCoordinates: mod.Vector;
+
+    // Returns the current map as a `MapDetector.Map` enum value, if possible.
+    public static get currenMap(): MapDetector.Map | undefined {
         const { x, y, z } = MapDetector.getHQCoordinates(0);
 
-        if (x == -1044) return mod.Maps.Granite_MainStreet; // Downtown -1044.5, 122.02, 220.17
-        if (x == -1474) return mod.Maps.Granite_Marina; // Marina -1474.05, 103.09, -690.45
-        if (x == -164) return mod.Maps.Badlands; // Blackwell Fields -164.96, 76.32, -322.58
-        if (x == -195) return mod.Maps.Eastwood; // Eastwood -195.29, 231.54, -41.5
-        if (x == -274) return mod.Maps.Granite_TechCampus; // Defense Nexus -274.12, 138.65, 309.02
-        if (x == -299) return mod.Maps.Granite_ClubHouse; // Golf Course -299.32, 191.91, -644.38
-        if (x == -30) return mod.Maps.Sand; // Portal Sandbox Marina -30.02, 32.4, -0.01
-        if (x == -323) return mod.Maps.Dumbo; // Manhattan Bridge -323.32, 52.3, -440.95
-        if (x == -39) return mod.Maps.Firestorm; // Operation Firestorm -39.67, 124.69, -116.68
-        if (x == -672) return mod.Maps.Aftermath; // Empire State -672.19, 53.79, -115.11
-        if (x == -84) return mod.Maps.Abbasid; // Siege of Cairo -84.27, 64.38, -58.42
-        if (x == -99 && y == 88) return mod.Maps.Tungsten; // Mirak Valley -99.78, 88.62, -253.42
-        if (x == -99 && y == 92) return mod.Maps.Outskirts; // New Sobek City -99.78, 92.4, -124.58
-        if (x == 293) return mod.Maps.Limestone; // Saints Quarter 293.13, 70.35, 134.51
-        if (x == 849) return mod.Maps.Battery; // Iberian Offensive 849.16, 78.37, 116.74
-        if (x == 94) return mod.Maps.Capstone; // Liberation Peak 94.71, 133.43, 77.46
+        if (x == -1044) return MapDetector.Map.Downtown; // Downtown <-1044.5, 122.02, 220.17>
+        if (x == -1474) return MapDetector.Map.Marina; // Marina <-1474.05, 103.09, -690.45>
+        if (x == -164) return MapDetector.Map.BlackwellFields; // Blackwell Fields <-164.96, 76.32, -322.58>
+        if (x == -195) return MapDetector.Map.Eastwood; // Eastwood <-195.29, 231.54, -41.5>
+        if (x == -274) return MapDetector.Map.DefenseNexus; // Defense Nexus <-274.12, 138.65, 309.02>
+        if (x == -299) return MapDetector.Map.GolfCourse; // Golf Course <-299.32, 191.91, -644.38>
+        if (x == -30) return MapDetector.Map.PortalSandboxMarina; // Portal Sandbox Marina <-30.02, 32.4, -0.01>
+        if (x == -323) return MapDetector.Map.ManhattanBridge; // Manhattan Bridge <-323.32, 52.3, -440.95>
+        if (x == -39) return MapDetector.Map.OperationFirestorm; // Operation Firestorm <-39.67, 124.69, -116.68>
+        if (x == -672) return MapDetector.Map.EmpireState; // Empire State <-672.19, 53.79, -115.11>
+        if (x == -84) return MapDetector.Map.SiegeOfCairo; // Siege of Cairo <-84.27, 64.38, -58.42>
+        if (x == -99 && y == 88) return MapDetector.Map.MirakValley; // Mirak Valley <-99.78, 88.62, -253.42>
+        if (x == -99 && y == 92) return MapDetector.Map.NewSobekCity; // New Sobek City <-99.78, 92.4, -124.58>
+        if (x == 293) return MapDetector.Map.SaintsQuarter; // Saints Quarter <293.13, 70.35, 134.51>
+        if (x == 427) return MapDetector.Map.Area22B; // Area 22B <427.68, 177.51, -743.26>
+        if (x == 566) return MapDetector.Map.RedlineStorage; // Redline Storage <566.77, 144.8, 356.16>
+        if (x == 849) return MapDetector.Map.IberianOffensive; // Iberian Offensive <849.16, 78.37, 116.74>
+        if (x == 94) return MapDetector.Map.LiberationPeak; // Liberation Peak <94.71, 133.43, 77.46>
+
+        return;
+    }
+
+    // Returns the current map as a `mod.Maps` enum value, if possible.
+    public static get currentNativeMap(): mod.Maps | undefined {
+        const map = this.currenMap;
+
+        if (map == MapDetector.Map.BlackwellFields) return mod.Maps.Badlands;
+        if (map == MapDetector.Map.DefenseNexus) return mod.Maps.Granite_TechCampus;
+        if (map == MapDetector.Map.Downtown) return mod.Maps.Granite_MainStreet;
+        if (map == MapDetector.Map.Eastwood) return mod.Maps.Eastwood;
+        if (map == MapDetector.Map.EmpireState) return mod.Maps.Aftermath;
+        if (map == MapDetector.Map.GolfCourse) return mod.Maps.Granite_ClubHouse;
+        if (map == MapDetector.Map.IberianOffensive) return mod.Maps.Battery;
+        if (map == MapDetector.Map.LiberationPeak) return mod.Maps.Capstone;
+        if (map == MapDetector.Map.ManhattanBridge) return mod.Maps.Dumbo;
+        if (map == MapDetector.Map.Marina) return mod.Maps.Granite_Marina;
+        if (map == MapDetector.Map.MirakValley) return mod.Maps.Tungsten;
+        if (map == MapDetector.Map.NewSobekCity) return mod.Maps.Outskirts;
+        if (map == MapDetector.Map.OperationFirestorm) return mod.Maps.Firestorm;
+        if (map == MapDetector.Map.PortalSandboxMarina) return mod.Maps.Sand;
+        if (map == MapDetector.Map.SaintsQuarter) return mod.Maps.Limestone;
+        if (map == MapDetector.Map.SiegeOfCairo) return mod.Maps.Abbasid;
+
+        // An oversight in the `mod.Maps` enum has ommitted the following maps:
+        if (map == MapDetector.Map.Area22B) return;
+        if (map == MapDetector.Map.RedlineStorage) return;
 
         return;
     }
     
-    public static getCurrentMapName(): string | undefined {
-        const map = MapDetector.getCurrentMap();
-        
-        if (map == mod.Maps.Abbasid) return 'Siege of Cairo';
-        if (map == mod.Maps.Aftermath) return 'Empire State';
-        if (map == mod.Maps.Badlands) return 'Blackwell Fields';
-        if (map == mod.Maps.Battery) return 'Iberian Offensive';
-        if (map == mod.Maps.Capstone) return 'Liberation Peak';
-        if (map == mod.Maps.Dumbo) return 'Manhattan Bridge';
-        if (map == mod.Maps.Eastwood) return 'Eastwood';
-        if (map == mod.Maps.Firestorm) return 'Operation Firestorm';
-        if (map == mod.Maps.Granite_ClubHouse) return 'Golf Course';
-        if (map == mod.Maps.Granite_MainStreet) return 'Downtown';
-        if (map == mod.Maps.Granite_Marina) return 'Marina';
-        if (map == mod.Maps.Granite_TechCampus) return 'Defense Nexus';
-        if (map == mod.Maps.Limestone) return 'Saints Quarter';
-        if (map == mod.Maps.Outskirts) return 'New Sobek City';
-        if (map == mod.Maps.Sand) return 'Portal Sandbox Marina';
-        if (map == mod.Maps.Tungsten) return 'Mirak Valley';
-
-        return undefined;
+    // Returns the current map as a string, if possible.
+    public static get currentMapName(): string | undefined {
+        return this.currenMap?.toString();
     }
 
-    public static isMap(map: mod.Maps): boolean {
-        return MapDetector.getCurrentMap() === map;
+    // Returns true if the current map is the given `MapDetector.Map` enum value.
+    public static isCurrentMap(map: MapDetector.Map): boolean {
+        return this.currenMap == map;
     }
 
+    // Returns true if the current map is the given `mod.Maps` enum value.
+    public static isCurrentNativeMap(map: mod.Maps): boolean {
+        return this.currentNativeMap == map;
+    }
+
+    // Returns the HQ coordinates of the current map (used for finding the HQ coordinates of the current map).
     public static getHQCoordinates(decimalPlaces: number = 2): { x: number, y: number, z: number } {
+        const hqCoordinates = mod.GetObjectPosition(mod.GetHQ(1));
         const scale = 10 ** decimalPlaces;
-        const hqPosition = mod.GetObjectPosition(mod.GetHQ(1));
-        const x = (~~(mod.XComponentOf(hqPosition) * scale)) / scale;
-        const y = (~~(mod.YComponentOf(hqPosition) * scale)) / scale;
-        const z = (~~(mod.ZComponentOf(hqPosition) * scale)) / scale;
+        const x = (~~(mod.XComponentOf(hqCoordinates) * scale)) / scale;
+        const y = (~~(mod.YComponentOf(hqCoordinates) * scale)) / scale;
+        const z = (~~(mod.ZComponentOf(hqCoordinates) * scale)) / scale;
         return { x, y, z };
+    }
+
+}
+
+namespace MapDetector {
+    
+    export enum Map {
+        Area22B = 'Area 22B',
+        BlackwellFields = 'Blackwell Fields',
+        DefenseNexus = 'Defense Nexus',
+        Downtown = 'Downtown',
+        Eastwood = 'Eastwood',
+        EmpireState = 'Empire State',
+        GolfCourse = 'Golf Course',
+        IberianOffensive = 'Iberian Offensive',
+        LiberationPeak = 'Liberation Peak',
+        ManhattanBridge = 'Manhattan Bridge',
+        Marina = 'Marina',
+        MirakValley = 'Mirak Valley',
+        NewSobekCity = 'New Sobek City',
+        OperationFirestorm = 'Operation Firestorm',
+        PortalSandboxMarina = 'Portal Sandbox Marina',
+        RedlineStorage = 'Redline Storage',
+        SaintsQuarter = 'Saints Quarter',
+        SiegeOfCairo = 'Siege of Cairo',
     }
 
 }

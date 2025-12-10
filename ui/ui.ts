@@ -277,7 +277,7 @@ class UI {
         };
     }
 
-    public static async handleButtonClick(player: mod.Player, widget: mod.UIWidget, event: mod.UIButtonEvent): Promise<void> {
+    public static handleButtonClick(player: mod.Player, widget: mod.UIWidget, event: mod.UIButtonEvent): void {
         // NOTE: mod.UIButtonEvent is currently broken or undefined, so we're not using it for now.
         // if (event != mod.UIButtonEvent.ButtonUp) return;
 
@@ -285,7 +285,9 @@ class UI {
 
         if (!clickHandler) return;
 
-        await clickHandler(player);
+        clickHandler(player).catch((error) => {
+            console.error(`Error in click handler for widget ${mod.GetUIWidgetName(widget)}:`, error);
+        });
     }
 
     public static parseNode(node?: UI.Node | mod.UIWidget): UI.Node {

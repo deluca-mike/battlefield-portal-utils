@@ -1,7 +1,10 @@
-// version 1.0.0
+// version 1.1.0
 
-// TODO: analyzeHealth shjould be a method to get the health status and log it.
 class PerformanceStats {
+
+    private stressThreshold: number = 25;
+
+    private deprioritizedThreshold: number = 65;
     
     private sampleRateSeconds: number = 0.5; // 0.5 is ideal as it aligns perfectly with both 30Hz and 60Hz
     
@@ -9,51 +12,69 @@ class PerformanceStats {
 
     private isStarted: boolean = false;
 
-    private cachedTickRate: number = 60; 
+    private cachedTickRate: number = 30; 
     
-    private log: (text: string) => void;
+    private log?: (text: string) => void;
 
-    constructor(log: (text: string) => void, sampleRateSeconds?: number) {
-        this.log = log;
-        this.sampleRateSeconds = sampleRateSeconds ?? 0.5;
+    constructor(options?: PerformanceStats.Options) {
+        this.log = options?.log ?? (() => {});
+        this.sampleRateSeconds = options?.sampleRateSeconds ?? 0.5;
+        this.stressThreshold = options?.stressThreshold ?? 25;
+        this.deprioritizedThreshold = options?.deprioritizedThreshold ?? 65;
     }
 
     public get tickRate(): number {
         return this.cachedTickRate;
     }
     
-    public trackPerformanceTick(): void {
+    // This should be called once every tick, so it is best to be called in the `OngoingGlobal()` event handler.
+    public trackTick(): void {
         this.tickBucket++;
     }
 
-    public startPerformanceHeartbeat(): void {
+    // This starts the performance tracking heartbeat, which is a loop that tracks the performance of the script. It can be called once, any time.
+    // If called multiple times, it will only start one loop.
+    public startHeartbeat(): void {
         if (this.isStarted) return;
 
         this.isStarted = true;
 
-        mod.Wait(this.sampleRateSeconds).then(() => this.performanceHeartbeat());
+        mod.Wait(this.sampleRateSeconds).then(() => this.heartbeat());
     }
 
-    private performanceHeartbeat(): void {
+    private heartbeat(): void {
         // The raw "Ticks Per Requested Second" (the composite metric).
         this.analyzeHealth(this.cachedTickRate = this.tickBucket / this.sampleRateSeconds);
 
         this.tickBucket = 0;
 
-        mod.Wait(this.sampleRateSeconds).then(() => this.performanceHeartbeat());
+        mod.Wait(this.sampleRateSeconds).then(() => this.heartbeat());
     }
 
     private analyzeHealth(tickRate: number): void {
+        if (!this.log) return;
+
         // We have accumulated too many ticks for the requested time, which means the Wait() took longer than requested.
-        if (tickRate >= 65) {
+        if (tickRate >= this.deprioritizedThreshold) {
             this.log(`<PS> Script Callbacks Deprioritized (Virtual Rate: ${tickRate.toFixed(1)}Hz).`);
             return;
         }
         
         // We didn't even get 30 ticks in the time window, which means the server is under stress.
-        if (tickRate <= 25) {
+        if (tickRate <= this.stressThreshold) {
             this.log(`<PS> Server Stress (Virtual Rate: ${tickRate.toFixed(1)}Hz).`);
             return;
         }
     }
+}
+
+namespace PerformanceStats {
+
+    export type Options = {
+        log?: (text: string) => void;
+        stressThreshold?: number;
+        deprioritizedThreshold?: number;
+        sampleRateSeconds?: number;
+    }
+
 }
